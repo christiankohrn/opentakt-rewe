@@ -58,7 +58,7 @@ export function BenutzerSeite({ aktuell, onFehler }: { aktuell: Benutzer; onFehl
             : `Benutzer ${angelegt.benutzername} angelegt, aber Einladung fehlgeschlagen: ${angelegt.mail_fehler || "unbekannt"}`,
         );
       } else {
-        setHinweis(`Benutzer ${angelegt.benutzername} angelegt. Er muss beim ersten Login ein eigenes Passwort vergeben.`);
+        setHinweis(`Benutzer ${angelegt.benutzername} angelegt. Beim ersten Login muss ein eigenes Passwort vergeben werden.`);
       }
       onFehler("");
     } catch (exc) {
@@ -111,133 +111,182 @@ export function BenutzerSeite({ aktuell, onFehler }: { aktuell: Benutzer; onFehl
   return (
     <div className="optionen-stapel">
       {hinweis && <p className="erfolg-hinweis" role="status">{hinweis}</p>}
-      <div className="optionen-zwei">
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>Benutzerkonten ({liste.length})</h2>
-          <p className="hinweis">Zeile antippen, um Namen, E-Mail, Rolle oder Passwort zu bearbeiten.</p>
-          <div className="tabelle-scroll">
-            <table>
+      <div className="benutzer-layout">
+        <div className="card" style={{ marginBottom: 0 }}>
+          <div className="karten-kopf">
+            <div>
+              <h2>Benutzerkonten ({liste.length})</h2>
+              <p className="hinweis">Zeile auswählen, um Daten, Rolle oder Passwort zu bearbeiten.</p>
+            </div>
+            {gewaehlt && (
+              <button type="button" className="secondary kompakt-knopf" onClick={() => setWahl(null)}>
+                + Neuer Benutzer
+              </button>
+            )}
+          </div>
+          <div className="tabelle-rahmen tabelle-scroll">
+            <table className="daten-tabelle">
               <thead>
                 <tr>
                   <th>Benutzername</th>
-                  <th>Name</th>
+                  <th>Name & E-Mail</th>
                   <th>Rolle</th>
-                  <th>Quelle</th>
-                  <th>2FA</th>
-                  <th>Status</th>
-                  <th />
+                  <th>Sicherheit & Status</th>
+                  <th className="zelle-rechts">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
-                {liste.map((benutzer) => (
-                  <tr
-                    key={benutzer.benutzer_id}
-                    className={`click ${benutzer.benutzer_id === wahl ? "aktiv" : ""} ${benutzer.aktiv ? "" : "archiv"}`}
-                    onClick={() => auswaehlen(benutzer)}
-                  >
-                    <td>
-                      <strong>{benutzer.benutzername}</strong>
-                      {benutzer.benutzer_id === aktuell.benutzer_id && <span className="hinweis"> (ich)</span>}
-                    </td>
-                    <td>{benutzer.name || "—"}</td>
-                    <td>{benutzer.rolle === "admin" ? "Admin" : "Benutzer"}</td>
-                    <td>{benutzer.auth_quelle === "ldap" ? "LDAP" : "Lokal"}</td>
-                    <td>
-                      {[
-                        benutzer.totp_aktiv ? "App" : null,
-                        (benutzer.passkey_anzahl || 0) > 0 ? `${benutzer.passkey_anzahl} Key${(benutzer.passkey_anzahl || 0) > 1 ? "s" : ""}` : null,
-                      ].filter(Boolean).join(" · ") || "—"}
-                    </td>
-                    <td>
-                      {!benutzer.aktiv ? "gesperrt" : benutzer.passwort_aendern ? "muss Passwort ändern" : "aktiv"}
-                    </td>
-                    <td>
-                      <div className="actions" style={{ margin: 0, flexWrap: "nowrap" }}>
-                        {benutzer.auth_quelle !== "ldap" && (
-                          <button type="button" className="secondary kompakt-knopf" onClick={(event) => { event.stopPropagation(); void einladungSenden(benutzer); }}>
-                            Einladung
+                {liste.map((benutzer) => {
+                  const sicherheit = [
+                    benutzer.totp_aktiv ? "2FA" : null,
+                    (benutzer.passkey_anzahl || 0) > 0 ? `${benutzer.passkey_anzahl} Passkey${(benutzer.passkey_anzahl || 0) > 1 ? "s" : ""}` : null,
+                  ].filter(Boolean).join(" · ");
+                  return (
+                    <tr
+                      key={benutzer.benutzer_id}
+                      className={`click ${benutzer.benutzer_id === wahl ? "aktiv" : ""} ${benutzer.aktiv ? "" : "archiv"}`}
+                      onClick={() => auswaehlen(benutzer)}
+                    >
+                      <td className="zelle-nowrap">
+                        {benutzer.benutzername}
+                        {benutzer.benutzer_id === aktuell.benutzer_id && <span className="hinweis"> (ich)</span>}
+                      </td>
+                      <td>
+                        <div>{benutzer.name || "—"}</div>
+                        {benutzer.email && <div className="hinweis zelle-subtext">{benutzer.email}</div>}
+                      </td>
+                      <td className="zelle-nowrap">
+                        <span className={`status-badge ${benutzer.rolle === "admin" ? "offen" : "gedaempft"}`}>
+                          {benutzer.rolle === "admin" ? "Admin" : "Benutzer"}
+                        </span>
+                        {benutzer.auth_quelle === "ldap" && <span className="hinweis"> · LDAP</span>}
+                      </td>
+                      <td className="zelle-nowrap">
+                        <span className={`status-badge ${!benutzer.aktiv ? "gedaempft" : benutzer.passwort_aendern ? "offen" : "ok"}`}>
+                          {!benutzer.aktiv ? "gesperrt" : benutzer.passwort_aendern ? "Passwortwechsel offen" : "aktiv"}
+                        </span>
+                        {sicherheit && <span className="hinweis"> · {sicherheit}</span>}
+                      </td>
+                      <td className="zelle-rechts zelle-nowrap">
+                        <div className="zeilen-knöpfe">
+                          {benutzer.auth_quelle !== "ldap" && (
+                            <button
+                              type="button"
+                              className="secondary kompakt-knopf"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void einladungSenden(benutzer);
+                              }}
+                            >
+                              Einladung
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="danger kompakt-knopf"
+                            disabled={benutzer.benutzer_id === aktuell.benutzer_id}
+                            title={benutzer.benutzer_id === aktuell.benutzer_id ? "Eigenes Konto kann nicht gelöscht werden" : "Benutzer löschen"}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void loeschen(benutzer);
+                            }}
+                          >
+                            Löschen
                           </button>
-                        )}
-                        <button type="button" className="danger kompakt-knopf" onClick={(event) => { event.stopPropagation(); void loeschen(benutzer); }}>
-                          Löschen
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         </div>
-        <div className="optionen-stapel">
-          {gewaehlt && (
-            <form className="card" onSubmit={(event) => void speichern(event)}>
-              <div className="liste-werkzeug">
-                <h2 style={{ margin: 0 }}>{gewaehlt.benutzername} bearbeiten</h2>
+
+        <div>
+          {gewaehlt ? (
+            <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void speichern(event)}>
+              <div className="karten-kopf">
+                <div>
+                  <h2>{gewaehlt.benutzername} bearbeiten</h2>
+                  <p className="hinweis">{gewaehlt.auth_quelle === "ldap" ? "LDAP-Konto" : "Lokales Benutzerkonto"}</p>
+                </div>
                 <button type="button" className="secondary kompakt-knopf" onClick={() => setWahl(null)}>Schließen</button>
               </div>
-              <div className="form-gruppen" style={{ marginTop: "0.6rem" }}>
-                <label>Name
+              <div className="form-stapel">
+                <label>Anzeigename
                   <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
                 </label>
-                <label>E-Mail
+                <label>E-Mail-Adresse
                   <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
                 </label>
                 <label>Rolle
                   <select value={form.rolle} onChange={(event) => setForm({ ...form, rolle: event.target.value })}>
                     <option value="benutzer">Benutzer</option>
-                    <option value="admin">Admin</option>
+                    <option value="admin">Administrator</option>
                   </select>
                 </label>
                 {gewaehlt.auth_quelle === "ldap" ? (
-                  <p className="hinweis">LDAP-Konto: Passwort wird im Verzeichnis geändert.</p>
+                  <p className="hinweis">Das Passwort wird zentral im LDAP-Verzeichnis verwaltet.</p>
                 ) : (
-                  <label>Neues Passwort (leer = unverändert)
-                    <input type="password" value={form.passwort} autoComplete="new-password" onChange={(event) => setForm({ ...form, passwort: event.target.value })} />
+                  <label>Neues Passwort (optional)
+                    <input
+                      type="password"
+                      value={form.passwort}
+                      placeholder="Leer lassen = unverändert"
+                      autoComplete="new-password"
+                      onChange={(event) => setForm({ ...form, passwort: event.target.value })}
+                    />
                   </label>
                 )}
-              </div>
-              <div className="actions" style={{ marginTop: "0.8rem" }}>
-                <label className="check" style={{ marginRight: "1rem" }}>
+                <label className="check">
                   <input type="checkbox" checked={form.aktiv} onChange={(event) => setForm({ ...form, aktiv: event.target.checked })} />
-                  Aktiv
+                  Konto ist aktiv (Anmeldung erlaubt)
                 </label>
+              </div>
+              <div className="karten-fuss">
                 <button type="submit">Änderungen speichern</button>
               </div>
             </form>
-          )}
-          <form className="card" onSubmit={(event) => void anlegen(event)}>
-            <h2 style={{ marginTop: 0 }}>Neuen Benutzer anlegen</h2>
-            <div className="form-gruppen">
-              <label>Benutzername
-                <input value={neu.benutzername} onChange={(event) => setNeu({ ...neu, benutzername: event.target.value })} required />
-              </label>
-              <label>Name
-                <input value={neu.name} onChange={(event) => setNeu({ ...neu, name: event.target.value })} />
-              </label>
-              <label>E-Mail
-                <input type="email" value={neu.email} onChange={(event) => setNeu({ ...neu, email: event.target.value })} />
-              </label>
-              {!neu.einladung && (
-                <label>Startpasswort (mind. 8 Zeichen)
-                  <input type="password" value={neu.passwort} autoComplete="new-password" onChange={(event) => setNeu({ ...neu, passwort: event.target.value })} required={!neu.einladung} />
+          ) : (
+            <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void anlegen(event)}>
+              <div className="karten-kopf">
+                <div>
+                  <h2>Neuer Benutzer</h2>
+                  <p className="hinweis">Zugang mit Startpasswort oder Einladungs-Link anlegen.</p>
+                </div>
+              </div>
+              <div className="form-stapel">
+                <label>Benutzername
+                  <input value={neu.benutzername} onChange={(event) => setNeu({ ...neu, benutzername: event.target.value })} required />
                 </label>
-              )}
-              <label>Rolle
-                <select value={neu.rolle} onChange={(event) => setNeu({ ...neu, rolle: event.target.value })}>
-                  <option value="benutzer">Benutzer</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </label>
-              <label className="check">
-                <input type="checkbox" checked={neu.einladung} onChange={(event) => setNeu({ ...neu, einladung: event.target.checked })} />
-                Per E-Mail einladen (statt Startpasswort)
-              </label>
-            </div>
-            <div className="actions" style={{ marginTop: "0.8rem" }}>
-              <button type="submit">Benutzer anlegen</button>
-            </div>
-          </form>
+                <label>Anzeigename
+                  <input value={neu.name} onChange={(event) => setNeu({ ...neu, name: event.target.value })} placeholder="z. B. Maria Beispiel" />
+                </label>
+                <label>E-Mail-Adresse
+                  <input type="email" value={neu.email} onChange={(event) => setNeu({ ...neu, email: event.target.value })} placeholder="name@firma.de" required={neu.einladung} />
+                </label>
+                <label>Rolle
+                  <select value={neu.rolle} onChange={(event) => setNeu({ ...neu, rolle: event.target.value })}>
+                    <option value="benutzer">Benutzer</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </label>
+                <label className="check">
+                  <input type="checkbox" checked={neu.einladung} onChange={(event) => setNeu({ ...neu, einladung: event.target.checked })} />
+                  Per E-Mail einladen (statt Startpasswort)
+                </label>
+                {!neu.einladung && (
+                  <label>Startpasswort (mind. 8 Zeichen)
+                    <input type="password" value={neu.passwort} autoComplete="new-password" onChange={(event) => setNeu({ ...neu, passwort: event.target.value })} required={!neu.einladung} />
+                  </label>
+                )}
+              </div>
+              <div className="karten-fuss">
+                <button type="submit">Benutzer anlegen</button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

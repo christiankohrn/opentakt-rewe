@@ -228,7 +228,7 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
                   gehe("/kunden/" + ids[index]);
                 }}
                 spalten={[
-                  { key: "nummer", titel: "Nr.", zelle: (kunde) => kunde.kunden_id },
+                  { key: "nummer", titel: "Nr.", zelle: (kunde) => kunde.kunden_id, nowrap: true },
                   { key: "name", titel: "Name", zelle: (kunde) => kunde.name1 || "—" },
                   { key: "ort", titel: "Ort", zelle: (kunde) => `${kunde.plz} ${kunde.ort}`.trim() || "—" },
                 ]}
@@ -305,10 +305,17 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
                   <p className="hinweis">Noch keine Rechnungen für diesen Kunden vorhanden.</p>
                 ) : (
                   <div className="tabelle-scroll">
-                    <table>
+                    <table className="daten-tabelle">
                       <thead>
                         <tr>
-                          <th>Re-Nr.</th><th>Datum</th><th>Netto</th><th>Brutto</th><th>Bezahlt</th><th>Zahlung</th><th>Serie</th><th />
+                          <th>Re-Nr.</th>
+                          <th>Datum</th>
+                          <th className="zelle-rechts">Netto</th>
+                          <th className="zelle-rechts">Brutto</th>
+                          <th className="zelle-rechts">Bezahlt</th>
+                          <th>Zahlung</th>
+                          <th>Serie</th>
+                          <th />
                         </tr>
                       </thead>
                       <tbody>
@@ -324,14 +331,14 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
                             onMouseEnter={(event) => void positionenZeigen(event, rechnung.rechnungs_id)}
                             onMouseLeave={() => setTipp(null)}
                           >
-                            <td><strong>{rechnung.archiv ? (rechnung.rechnungs_nr ? `${rechnung.rechnungs_nr} (Archiv)` : "Archiv") : (rechnung.rechnungs_nr || "Entwurf")}</strong></td>
-                            <td>{datumDE(rechnung.datum)}</td>
-                            <td>{geld(rechnung.netto)}</td>
-                            <td>{geld(rechnung.brutto)}</td>
-                            <td>{geld(rechnung.bezahlt)}</td>
-                            <td>{datumDE(rechnung.bezahlt_am) || "—"}</td>
-                            <td>{rechnung.wiedervorlage_termin ? `${datumDE(rechnung.wiedervorlage_termin)}${rechnung.wiederholung_monate ? ` (${rechnung.wiederholung_monate} M.)` : ""}` : "—"}</td>
-                            <td>
+                            <td className="zelle-nowrap">{rechnung.archiv ? (rechnung.rechnungs_nr ? `${rechnung.rechnungs_nr} (Archiv)` : "Archiv") : (rechnung.rechnungs_nr || "Entwurf")}</td>
+                            <td className="zelle-nowrap">{datumDE(rechnung.datum)}</td>
+                            <td className="zelle-rechts zelle-nowrap">{geld(rechnung.netto)}</td>
+                            <td className="zelle-rechts zelle-nowrap">{geld(rechnung.brutto)}</td>
+                            <td className="zelle-rechts zelle-nowrap">{geld(rechnung.bezahlt)}</td>
+                            <td className="zelle-nowrap">{datumDE(rechnung.bezahlt_am) || "—"}</td>
+                            <td className="zelle-nowrap">{rechnung.wiedervorlage_termin ? `${datumDE(rechnung.wiedervorlage_termin)}${rechnung.wiederholung_monate ? ` (${rechnung.wiederholung_monate} M.)` : ""}` : "—"}</td>
+                            <td className="zelle-rechts zelle-nowrap">
                               <button
                                 type="button"
                                 className="secondary kompakt-knopf"

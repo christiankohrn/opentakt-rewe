@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 export function gehe(href: string) {
   if (location.pathname === href) {
@@ -26,6 +26,62 @@ export function LinkIntern({
     gehe(href);
   }
   return <a href={href} className={className} title={title} aria-label={title} onClick={klick}>{children}</a>;
+}
+
+export function AktionsMenue({
+  titel = "Weitere Aktionen",
+  kompakt = false,
+  resetKey,
+  children,
+}: {
+  titel?: string;
+  kompakt?: boolean;
+  resetKey?: string | number | null;
+  children: ReactNode;
+}) {
+  const [offen, setOffen] = useState(false);
+  const kasten = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setOffen(false);
+  }, [resetKey]);
+
+  useEffect(() => {
+    if (!offen) return;
+    function ausserhalb(event: PointerEvent) {
+      if (!kasten.current?.contains(event.target as Node)) {
+        setOffen(false);
+      }
+    }
+    function taste(event: KeyboardEvent) {
+      if (event.key === "Escape") setOffen(false);
+    }
+    document.addEventListener("pointerdown", ausserhalb);
+    document.addEventListener("keydown", taste);
+    return () => {
+      document.removeEventListener("pointerdown", ausserhalb);
+      document.removeEventListener("keydown", taste);
+    };
+  }, [offen]);
+
+  return (
+    <div className="mehr-menue" ref={kasten}>
+      <button
+        type="button"
+        className={`secondary ${kompakt ? "kompakt-knopf" : ""}`}
+        aria-expanded={offen}
+        aria-haspopup="menu"
+        onClick={() => setOffen((bisher) => !bisher)}
+      >
+        {titel} ▾
+      </button>
+      {offen && (
+        <div className="mehr-liste" role="menu" onClick={() => setOffen(false)}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function routeLesen(): { seite: string; id: number | null; neu: boolean } {

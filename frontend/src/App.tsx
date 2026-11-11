@@ -11,7 +11,7 @@ import { Ablegen, DateiImportKnopf } from "./Ablegen";
 import { ScanSeite } from "./Scan";
 import { KontoSeite } from "./Konto";
 import { PasswortSetzen, PasswortVergessen } from "./Zugang";
-import { IconAbmelden, IconBeleg, IconChevronLinks, IconChevronRechts, IconGear, IconKonto, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun, IconUpload } from "./icons";
+import { IconAbmelden, IconBeleg, IconGear, IconKonto, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun, IconUpload } from "./icons";
 import { PRODUCT_NAME } from "./brand";
 import { LinkIntern, routeLesen } from "./nav";
 import { useTheme } from "./theme";
@@ -126,49 +126,16 @@ export function App() {
 }
 
 function MobilUnten({ seite }: { seite: string }) {
-  const rolle = useRef<HTMLDivElement>(null);
-  const [links, setLinks] = useState(false);
-  const [rechts, setRechts] = useState(false);
-
-  function pruefen() {
-    const el = rolle.current;
-    if (!el) return;
-    setLinks(el.scrollLeft > 4);
-    setRechts(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
-  }
-
-  useEffect(() => {
-    pruefen();
-    const aktiv = rolle.current?.querySelector<HTMLElement>("a.active");
-    aktiv?.scrollIntoView({ block: "nearest", inline: "nearest" });
-    window.addEventListener("resize", pruefen);
-    return () => window.removeEventListener("resize", pruefen);
-  }, [seite]);
-
-  function rollen(weite: number) {
-    rolle.current?.scrollBy({ left: weite, behavior: "smooth" });
-  }
-
   return (
     <nav className="mobil-unten" aria-label="Hauptnavigation">
-      {links && (
-        <button type="button" className="unten-pfeil links" onClick={() => rollen(-160)} title="Nach links" aria-label="Nach links rollen">
-          <IconChevronLinks />
-        </button>
-      )}
-      <div className="mobil-unten-leiste" ref={rolle} onScroll={pruefen}>
-        <LinkIntern href="/rechnungen" className={seite === "rechnungen" ? "active" : ""}><IconRechnung />Rechnungen</LinkIntern>
-        <LinkIntern href="/kunden" className={seite === "kunden" ? "active" : ""}><IconKunden />Kunden</LinkIntern>
-        <LinkIntern href="/belege" className={seite === "belege" ? "active" : ""}><IconBeleg />Belege</LinkIntern>
-        <LinkIntern href="/scan" className={seite === "scan" ? "active" : ""}><IconScan />Scannen</LinkIntern>
-        <LinkIntern href="/kontozeilen" className={seite === "kontozeilen" ? "active" : ""}><IconKontozeilen />Kontozeilen</LinkIntern>
-        <LinkIntern href="/einstellungen" className={seite === "einstellungen" ? "active" : ""}><IconGear />Einstellungen</LinkIntern>
+      <div className="mobil-unten-leiste">
+        <LinkIntern href="/rechnungen" className={seite === "rechnungen" ? "active" : ""}><IconRechnung /><span>Rechnungen</span></LinkIntern>
+        <LinkIntern href="/kunden" className={seite === "kunden" ? "active" : ""}><IconKunden /><span>Kunden</span></LinkIntern>
+        <LinkIntern href="/belege" className={seite === "belege" ? "active" : ""}><IconBeleg /><span>Belege</span></LinkIntern>
+        <LinkIntern href="/scan" className={seite === "scan" ? "active" : ""}><IconScan /><span>Scannen</span></LinkIntern>
+        <LinkIntern href="/kontozeilen" className={seite === "kontozeilen" ? "active" : ""}><IconKontozeilen /><span>Kontozeilen</span></LinkIntern>
+        <LinkIntern href="/einstellungen" className={seite === "einstellungen" ? "active" : ""}><IconGear /><span>Einstellungen</span></LinkIntern>
       </div>
-      {rechts && (
-        <button type="button" className="unten-pfeil rechts" onClick={() => rollen(160)} title="Nach rechts" aria-label="Nach rechts rollen">
-          <IconChevronRechts />
-        </button>
-      )}
     </nav>
   );
 }
@@ -252,7 +219,7 @@ function Login({ onOk }: { onOk: (benutzer: Benutzer) => void }) {
     <div className="login-seite">
       <form className="login" onSubmit={senden}>
         <h1>{PRODUCT_NAME}</h1>
-        <label>Benutzername<input value={benutzername} onChange={(event) => setBenutzername(event.target.value)} autoFocus autoComplete="username" /></label>
+        <label>Benutzername<input value={benutzername} onChange={(event) => setBenutzername(event.target.value)} autoFocus autoComplete="username webauthn" /></label>
         <label>Passwort<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" /></label>
         <Fehler text={fehler} />
         <div className="login-knöpfe">

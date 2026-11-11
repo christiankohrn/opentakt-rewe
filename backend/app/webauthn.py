@@ -1,6 +1,5 @@
 """Passkeys (WebAuthn): Registrieren und passwortloses Anmelden."""
 
-import secrets
 from urllib.parse import urlparse
 
 from fastapi import Request
@@ -15,6 +14,7 @@ from webauthn.helpers import bytes_to_base64url
 from webauthn.helpers.structs import (
     AttestationConveyancePreference,
     AuthenticatorSelectionCriteria,
+    AuthenticatorTransport,
     PublicKeyCredentialCreationOptions,
     PublicKeyCredentialDescriptor,
     PublicKeyCredentialRequestOptions,
@@ -64,8 +64,29 @@ def resolve_rp(request: Request) -> tuple[str, list[str]]:
     return rp_id, origins
 
 
+def _transports(roh: str | None) -> list[AuthenticatorTransport] | None:
+    if not roh:
+        return None
+    ergebnis: list[AuthenticatorTransport] = []
+    for teil in roh.split(","):
+        wert = teil.strip()
+        if not wert:
+            continue
+        try:
+            ergebnis.append(AuthenticatorTransport(wert))
+        except ValueError:
+            continue
+    return ergebnis or None
+
+
 def _deskriptoren(passkeys: list[Passkey]) -> list[PublicKeyCredentialDescriptor]:
-    return [PublicKeyCredentialDescriptor(id=base64url_to_bytes(p.credential_id)) for p in passkeys]
+    return [
+        PublicKeyCredentialDescriptor(
+            id=base64url_to_bytes(p.credential_id),
+            transports=_transports(p.transports),
+        )
+        for p in passkeys
+    ]
 
 
 def registrierungs_optionen(
@@ -80,7 +101,7 @@ def registrierungs_optionen(
         user_display_name=name or benutzername,
         attestation=AttestationConveyancePreference.NONE,
         authenticator_selection=AuthenticatorSelectionCriteria(
-            resident_key=ResidentKeyRequirement.PREFERRED,
+            resident_key=ResidentKeyRequirement.REQUIRED,
             user_verification=UserVerificationRequirement.PREFERRED,
         ),
         exclude_credentials=_deskriptoren(vorhandene),
@@ -106,21 +127,22 @@ def registrierung_pruefen(request: Request, credential: dict, erwartete_challeng
     )
 
 
-# Antwort immer auf dieselbe Mindestgröße auffüllen, damit Unbekannte,
-# Konten ohne Passkeys und Konten mit wenigen Passkeys gleich aussehen.
-MIN_ANMELDE_DATEN = 3
-
-
 def anmelde_optionen(
-    request: Request, passkeys: list[Passkey]
+    request: Request, _passkeys: list[Passkey] | None = None
 ) -> tuple[PublicKeyCredentialRequestOptions, str]:
+    """Erzeugt Discoverable-Passkey-Optionen (allowCredentials leer).
+
+    Bewusst immer ohne allowCredentials:
+    1. Passwortmanager wie 1Password, iCloud Keychain und Windows Hello finden
+       den gespeicherten Resident-Key direkt anhand der rpId, ohne dass
+       künstliche Dummy-IDs Windows Security zum Abbruch bringen.
+    2. Die Antwort ist für bekannte, unbekannte und leere Benutzernamen
+       identisch (kein Konto-Enumeration-Leak).
+    """
     rp_id, _ = resolve_rp(request)
-    deskriptoren = _deskriptoren(passkeys)
-    while len(deskriptoren) < MIN_ANMELDE_DATEN:
-        deskriptoren.append(PublicKeyCredentialDescriptor(id=secrets.token_bytes(64)))
     optionen = generate_authentication_options(
         rp_id=rp_id,
-        allow_credentials=deskriptoren,
+        allow_credentials=[],
         user_verification=UserVerificationRequirement.PREFERRED,
     )
     return optionen, rp_id
@@ -144,5 +166,5 @@ def anmeldung_pruefen(
 
 
 def credential_raw_id(credential: dict) -> str:
-    roh = credential.get("rawId") or credential.get("id") or ""
+    roh = credential.get("id") or credential.get("rawId") or ""
     return str(roh)

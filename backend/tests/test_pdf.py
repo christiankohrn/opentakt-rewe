@@ -86,3 +86,20 @@ def test_dynamische_stammdaten_im_pdf_und_xml():
     er = erechnung_aus_pdf(pdf_bytes)
     assert er is not None
     assert "Musterfirma GmbH" in er["verkaeufer"]
+
+
+def test_serverseitige_pdf_und_text_vorschau():
+    from app.vorschau import lokale_datei_vorschau, pdf_seite_png, pdf_seiten_anzahl, text_vorschau
+
+    pdf_bytes = rechnung_pdf(_rechnung())
+    assert pdf_seiten_anzahl(pdf_bytes) == 1
+    png = pdf_seite_png(pdf_bytes, 1, max_kante=1200)
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+
+    lokal = lokale_datei_vorschau("test.pdf", pdf_bytes)
+    assert lokal["art"] == "pdf"
+    assert lokal["gesamt"] == 1
+    assert lokal["seiten"][0].startswith("data:image/png;base64,")
+
+    csv_auszug = text_vorschau("auszug.csv", "Datum;Betrag\n01.11.2026;-12,34\n".encode("utf-8"))
+    assert csv_auszug is not None and "01.11.2026" in csv_auszug

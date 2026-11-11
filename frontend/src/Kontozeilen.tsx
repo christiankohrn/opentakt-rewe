@@ -4,7 +4,7 @@ import { AblegenModal, DateiImportKnopf } from "./Ablegen";
 import { BelegAnsicht } from "./Belege";
 import { KontoFilter } from "./konten";
 import { DatenListe, zeilenWahl, type Sortierung } from "./liste";
-import { LinkIntern, gehe } from "./nav";
+import { AktionsMenue, LinkIntern, gehe } from "./nav";
 import { Teilung } from "./teilen";
 
 type Kurz = {
@@ -407,7 +407,6 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
               aktivId={anzeige}
               gewaehlt={belegIds}
               sortierung={null}
-              onSort={() => undefined}
               onZeile={(_event, indexZeile) => setAnzeige(gefiltertBelege[indexZeile].beleg_id)}
               onDoppel={(indexZeile) => umschalten(gefiltertBelege[indexZeile].beleg_id)}
               vorn={(vorschlag) => (
@@ -422,8 +421,8 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
               )}
               spalten={[
                 { key: "partner", titel: "Partner", zelle: (vorschlag) => vorschlag.partner || vorschlag.dateiname },
-                { key: "betrag", titel: "Betrag", zelle: (vorschlag) => vorschlag.betrag ? geld(vorschlag.betrag) : "—" },
-                { key: "datum", titel: "Belegdatum", zelle: (vorschlag) => datumDE(vorschlag.datum) || "—" },
+                { key: "betrag", titel: "Betrag", zelle: (vorschlag) => vorschlag.betrag ? geld(vorschlag.betrag) : "—", ausrichtung: "rechts", nowrap: true },
+                { key: "datum", titel: "Belegdatum", zelle: (vorschlag) => datumDE(vorschlag.datum) || "—", nowrap: true },
                 { key: "grund", titel: "Treffer", zelle: (vorschlag) => vorschlag.grund || "—" },
                 { key: "dateiname", titel: "Datei", zelle: (vorschlag) => vorschlag.dateiname },
               ]}
@@ -558,12 +557,12 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
               )}
               klasse={(eintrag) => eintrag.geprueft ? "" : "offen"}
               spalten={[
-                { key: "datum", titel: "Datum", zelle: (eintrag) => datumDE(eintrag.datum) },
+                { key: "datum", titel: "Datum", zelle: (eintrag) => datumDE(eintrag.datum), nowrap: true },
                 { key: "gegenpartei", titel: "Empfänger / Auftraggeber", zelle: (eintrag) => eintrag.gegenpartei || "—" },
-                { key: "betrag", titel: "Betrag", zelle: (eintrag) => <span className={Number(eintrag.betrag) < 0 ? "betrag-negativ" : ""}>{geld(eintrag.betrag)}</span> },
-                { key: "beleg", titel: "Beleg", zelle: (eintrag) => (eintrag.beleg_anzahl || 0) > 1 ? eintrag.beleg_anzahl + " Belege" : eintrag.beleg_id ? "zugeordnet" : "—" },
+                { key: "betrag", titel: "Betrag", zelle: (eintrag) => <span className={Number(eintrag.betrag) < 0 ? "betrag-negativ" : ""}>{geld(eintrag.betrag)}</span>, ausrichtung: "rechts", nowrap: true },
+                { key: "beleg", titel: "Beleg", zelle: (eintrag) => (eintrag.beleg_anzahl || 0) > 1 ? eintrag.beleg_anzahl + " Belege" : eintrag.beleg_id ? "zugeordnet" : "—", nowrap: true },
                 { key: "zweck", titel: "Verwendungszweck", zelle: (eintrag) => eintrag.zweck },
-                { key: "geliefert", titel: "StB", zelle: (eintrag) => eintrag.datev_geliefert ? datumDE(eintrag.datev_geliefert) : "offen" },
+                { key: "geliefert", titel: "StB", zelle: (eintrag) => eintrag.datev_geliefert ? datumDE(eintrag.datev_geliefert) : "offen", nowrap: true },
               ]}
             />
           </div>
@@ -574,18 +573,13 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
             <div className="actions" style={{ margin: 0 }}>
               <DateiImportKnopf onFehler={onFehler} className="button" title="Abrechnung importieren" />
               {aktiveAbrObj && (
-                <button type="button" className="secondary" onClick={() => void abrechnungAnDatevSenden(aktiveAbrObj)}>
+                <button type="button" className="secondary nur-desktop-inline" onClick={() => void abrechnungAnDatevSenden(aktiveAbrObj)}>
                   Abrechnung an DATEV ({aktiveAbrObj.quelle.toUpperCase()})
-                </button>
-              )}
-              {aktiveAbrObj && (
-                <button type="button" className="secondary nur-mobil-inline" onClick={() => setAbrVorschauMobil(true)}>
-                  PDF ansehen
                 </button>
               )}
             </div>
             {aktiveAbrObj && (
-              <button type="button" className="danger kompakt-knopf" onClick={() => void abrechnungLoeschen()}>
+              <button type="button" className="danger kompakt-knopf nur-desktop-inline" onClick={() => void abrechnungLoeschen()}>
                 Abrechnung löschen
               </button>
             )}
@@ -594,23 +588,24 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
             <DatenListe
               zeilen={abrechnungen}
               zeilenId={(eintrag) => eintrag.beleg_id}
-              href={(eintrag) => "/belege/" + eintrag.beleg_id}
               aktivId={aktiveAbrechnung}
               gewaehlt={aktiveAbrechnung ? [aktiveAbrechnung] : []}
               sortierung={null}
-              onSort={() => undefined}
-              onZeile={(_event, indexZeile) => setAktiveAbrechnung(abrechnungen[indexZeile].beleg_id)}
+              onZeile={(_event, indexZeile) => {
+                setAktiveAbrechnung(abrechnungen[indexZeile].beleg_id);
+                if (window.innerWidth <= 1024) setAbrVorschauMobil(true);
+              }}
               onKontext={(event, indexZeile) => {
                 const eintrag = abrechnungen[indexZeile];
                 setAktiveAbrechnung(eintrag.beleg_id);
                 setAbrMenu({ x: event.clientX, y: event.clientY, eintrag });
               }}
               spalten={[
-                { key: "quelle", titel: "Konto", zelle: (eintrag) => eintrag.quelle.toUpperCase() },
+                { key: "quelle", titel: "Konto", zelle: (eintrag) => eintrag.quelle.toUpperCase(), nowrap: true },
                 { key: "dateiname", titel: "Abrechnungsdatei", zelle: (eintrag) => eintrag.dateiname },
-                { key: "zeitraum", titel: "Zeitraum", zelle: (eintrag) => eintrag.von && eintrag.bis ? `${datumDE(eintrag.von)} – ${datumDE(eintrag.bis)}` : datumDE(eintrag.eingang) || "—" },
-                { key: "umsaetze", titel: "Umsätze", zelle: (eintrag) => `${eintrag.zugeordnet}/${eintrag.umsaetze} Belege · ${eintrag.geprueft} gepr.` },
-                { key: "stb", titel: "StB", zelle: (eintrag) => eintrag.datev_gesendet ? datumDE(eintrag.datev_gesendet) : `${eintrag.geliefert}/${eintrag.umsaetze}` },
+                { key: "zeitraum", titel: "Zeitraum", zelle: (eintrag) => eintrag.von && eintrag.bis ? `${datumDE(eintrag.von)} – ${datumDE(eintrag.bis)}` : datumDE(eintrag.eingang) || "—", nowrap: true },
+                { key: "umsaetze", titel: "Umsätze", zelle: (eintrag) => `${eintrag.zugeordnet}/${eintrag.umsaetze} Belege · ${eintrag.geprueft} gepr.`, nowrap: true },
+                { key: "stb", titel: "StB", zelle: (eintrag) => eintrag.datev_gesendet ? datumDE(eintrag.datev_gesendet) : `${eintrag.geliefert}/${eintrag.umsaetze}`, nowrap: true },
               ]}
             />
           </div>
@@ -755,19 +750,16 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
             <input type="checkbox" checked={geprueft} onChange={(event) => setGeprueft(event.target.checked)} />
             Geprüft
           </label>
-          <details className="mehr-menue">
-            <summary className="button secondary kompakt-knopf">Mehr ▾</summary>
-            <div className="mehr-liste" onClick={(event) => { const d = event.currentTarget.closest("details"); if (d) d.open = false; }}>
-              {belegIds.length > 0 && (
-                <button type="button" onClick={() => { setBelegIds([]); void zuordnen([]); }}>
-                  Beleg-Zuordnung lösen
-                </button>
-              )}
-              <button type="button" className="menue-gefahr" onClick={() => void umsaetzeLoeschen(zeile.bewegung_id)}>
-                Kontozeile löschen
+          <AktionsMenue titel="Mehr" kompakt resetKey={zeile.bewegung_id}>
+            {belegIds.length > 0 && (
+              <button type="button" onClick={() => { setBelegIds([]); void zuordnen([]); }}>
+                Beleg-Zuordnung lösen
               </button>
-            </div>
-          </details>
+            )}
+            <button type="button" className="menue-gefahr" onClick={() => void umsaetzeLoeschen(zeile.bewegung_id)}>
+              Kontozeile löschen
+            </button>
+          </AktionsMenue>
         </div>
       </div>
 
@@ -806,7 +798,13 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
     </div>
   );
 
-  const vorschauInhalt = stapelIds.length > 1 ? (
+  const abrIndex = aktiveAbrObj ? abrechnungen.findIndex((a) => a.beleg_id === aktiveAbrObj.beleg_id) : -1;
+  const abrVorige = abrIndex > 0 ? abrechnungen[abrIndex - 1].beleg_id : null;
+  const abrNaechste = abrIndex >= 0 && abrIndex + 1 < abrechnungen.length ? abrechnungen[abrIndex + 1].beleg_id : null;
+
+  const vorschauInhalt = ansicht === "abrechnungen" && !detail && aktiveAbrObj && !aktiveAbrObj.datei_vorhanden ? (
+    <p className="hinweis vorschau-mitte">Zu dieser Abrechnung ist keine Originaldatei hinterlegt.</p>
+  ) : stapelIds.length > 1 ? (
     <div className="beleg-stapel">
       {stapelIds.map((id, indexStapel) => (
         <section key={id} className="beleg-stapel-teil">
@@ -867,9 +865,30 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
         rechts={
           <div className={`spalte ${detail || abrVorschauMobil ? "detail-spalte" : "nur-desktop-spalte"}`}>
             {abrVorschauMobil && aktiveAbrObj && (
-              <div className="mobil-zurueck-leiste">
-                <button type="button" className="secondary kompakt-knopf" onClick={() => setAbrVorschauMobil(false)}>← Abrechnungen</button>
-                <span className="hinweis dateiname-zeile">{aktiveAbrObj.dateiname}</span>
+              <div className="beleg-kopf-block">
+                <div className="mobil-zurueck-leiste">
+                  <button type="button" className="secondary kompakt-knopf" onClick={() => setAbrVorschauMobil(false)}>← Abrechnungen</button>
+                  <div className="actions" style={{ margin: 0 }}>
+                    {abrVorige && <button type="button" className="secondary kompakt-knopf" onClick={() => setAktiveAbrechnung(abrVorige)} title="Vorige Abrechnung">‹</button>}
+                    {abrNaechste && <button type="button" className="secondary kompakt-knopf" onClick={() => setAktiveAbrechnung(abrNaechste)} title="Nächste Abrechnung">›</button>}
+                  </div>
+                </div>
+                <div className="detail-kopf">
+                  <div style={{ minWidth: 0 }}>
+                    <h2 className="dateiname-zeile">{aktiveAbrObj.dateiname}</h2>
+                    <p className="hinweis detail-untertitel">
+                      {aktiveAbrObj.quelle.toUpperCase()} · {aktiveAbrObj.zugeordnet}/{aktiveAbrObj.umsaetze} Belege · {aktiveAbrObj.geprueft} geprüft
+                    </p>
+                  </div>
+                  <div className="haupt-aktionen">
+                    <button type="button" className="secondary" onClick={() => void abrechnungAnDatevSenden(aktiveAbrObj)}>
+                      An DATEV
+                    </button>
+                    <button type="button" className="danger" onClick={() => void abrechnungLoeschen(aktiveAbrObj.beleg_id)}>
+                      Löschen
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
             {!detail && ansicht === "umsaetze" && gewaehltZeile && (

@@ -647,3 +647,64 @@ def beleg_datei(beleg_id: int, session: Session = Depends(get_db)) -> Response:
         media_type=_typ(beleg.dateiname),
         headers={"Content-Disposition": f'inline; filename="{beleg.dateiname}"', "Cache-Control": "no-store"},
     )
+
+
+@router.get("/belege/{beleg_id}/vorschau")
+def beleg_vorschau_info(beleg_id: int, session: Session = Depends(get_db)) -> dict:
+    from app.belege import beleg_inhalt_laden
+    from app.vorschau import ist_bild, ist_pdf, pdf_seiten_anzahl, text_vorschau
+
+    beleg = session.get(Beleg, beleg_id)
+    if beleg is None:
+        raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
+    inhalt = beleg_inhalt_laden(session, beleg)
+    if inhalt is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden.")
+    version = (beleg.sha256 or "")[:12]
+    if ist_pdf(beleg.dateiname, inhalt):
+        try:
+            seiten = pdf_seiten_anzahl(inhalt)
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"PDF nicht lesbar: {exc}") from None
+        return {"art": "pdf", "seiten": seiten, "version": version}
+    if ist_bild(beleg.dateiname):
+        return {"art": "bild", "seiten": 1, "version": version}
+    auszug = text_vorschau(beleg.dateiname, inhalt)
+    if auszug is not None:
+        return {"art": "text", "seiten": 1, "text": auszug, "version": version}
+    return {"art": "datei", "seiten": 0, "version": version}
+
+
+@router.get("/belege/{beleg_id}/seite/{seite}")
+def beleg_vorschau_seite(beleg_id: int, seite: int, session: Session = Depends(get_db)) -> Response:
+    from app.belege import beleg_inhalt_laden
+    from app.vorschau import pdf_seite_png
+
+    beleg = session.get(Beleg, beleg_id)
+    if beleg is None:
+        raise HTTPException(status_code=404, detail="Beleg nicht gefunden.")
+    inhalt = beleg_inhalt_laden(session, beleg)
+    if inhalt is None:
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden.")
+    try:
+        png = pdf_seite_png(inhalt, seite)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Seite konnte nicht gerendert werden: {exc}") from None
+    return Response(
+        content=png,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
+@router.post("/belege/vorschau-lokal")
+async def beleg_vorschau_lokal(datei: UploadFile = File(...)) -> dict:
+    from app.vorschau import lokale_datei_vorschau
+
+    inhalt = await datei.read()
+    try:
+        return lokale_datei_vorschau(datei.filename or "datei", inhalt)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Vorschau fehlgeschlagen: {exc}") from None

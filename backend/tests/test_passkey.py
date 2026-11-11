@@ -203,11 +203,11 @@ def test_passkey_registrieren_verwalten_und_anmelden(session, test_url):
         )
     assert exc.value.status_code == 400
 
-    # Anmeldung mit Passkey
+    # Anmeldung mit Passkey (Discoverable Credential: allowCredentials leer, funktioniert mit & ohne Benutzername)
     anfrage = _request()
-    login_optionen = passkey_optionen(PasskeyOptionenIn(benutzername="key"), anfrage, session)
+    login_optionen = passkey_optionen(PasskeyOptionenIn(benutzername=""), anfrage, session)
     assert login_optionen["rpId"] == RP_ID
-    assert len(login_optionen["allowCredentials"]) >= 1
+    assert login_optionen["allowCredentials"] == []
     daten = passkey_verifizieren(
         PasskeyVerifyIn(credential=auth.authenticate(login_optionen)), anfrage, session
     )
@@ -227,10 +227,47 @@ def test_passkey_registrieren_verwalten_und_anmelden(session, test_url):
 
 
 def test_optionen_verraten_kein_konto(session, test_url):
-    assert len(passkey_optionen(PasskeyOptionenIn(benutzername="niemand"), _request(), session)["allowCredentials"]) == 3
+    leer = passkey_optionen(PasskeyOptionenIn(benutzername=""), _request(), session)
+    unbekannt = passkey_optionen(PasskeyOptionenIn(benutzername="niemand"), _request(), session)
     nutzer = benutzer_anlegen(session, "ohne", "", "", "geheim123", "benutzer")
     nutzer.passwort_aendern = False
-    assert len(passkey_optionen(PasskeyOptionenIn(benutzername="ohne"), _request(), session)["allowCredentials"]) == 3
+    bekannt = passkey_optionen(PasskeyOptionenIn(benutzername="ohne"), _request(), session)
+    assert leer["allowCredentials"] == []
+    assert unbekannt["allowCredentials"] == []
+    assert bekannt["allowCredentials"] == []
+
+
+def test_synced_passkey_wie_1password_mit_backup_flags_und_sign_count_null(session, test_url):
+    nutzer = benutzer_anlegen(session, "sync", "Sync", "", "geheim123", "admin")
+    request = _angemeldet(session, nutzer)
+    auth = SoftAuthenticator()
+
+    optionen = passkey_registrieren_optionen(request, session)
+    assert optionen["authenticatorSelection"]["residentKey"] == "required"
+    reg_cred = auth.create(optionen)
+    reg_cred["response"]["transports"] = ["internal", "hybrid"]
+    passkey_registrieren_verifizieren(
+        PasskeyRegistrierenIn(credential=reg_cred, name="1Password"), request, session
+    )
+
+    # 2. Registrierungs-Optionen enthalten gespeicherte Transports in excludeCredentials
+    optionen_folge = passkey_registrieren_optionen(request, session)
+    assert optionen_folge["excludeCredentials"][0]["transports"] == ["internal", "hybrid"]
+
+    # 1Password-typische Assertion: Backup-Flags (UP|UV|BE|BS = 0x1D), sign_count = 0, userHandle gesetzt
+    anfrage = _request()
+    login_opt = passkey_optionen(PasskeyOptionenIn(benutzername=""), anfrage, session)
+    client_data = json.dumps(
+        {"type": "webauthn.get", "challenge": login_opt["challenge"], "origin": ORIGIN}
+    ).encode()
+    rp_hash = hashlib.sha256(RP_ID.encode()).digest()
+    auth_data = rp_hash + b"\x1d" + struct.pack(">I", 0)
+    sig = auth._sign(auth_data + hashlib.sha256(client_data).digest())
+    cred = AuthenticationCredential(auth._credential_id, client_data, auth_data, sig).as_dict()
+    cred["response"]["userHandle"] = bytes_to_base64url(str(nutzer.benutzer_id).encode())
+
+    daten = passkey_verifizieren(PasskeyVerifyIn(credential=cred), anfrage, session)
+    assert daten["benutzername"] == "sync"
 
 
 def test_fremder_passkey_wird_abgelehnt(session, test_url):

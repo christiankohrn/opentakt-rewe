@@ -1,7 +1,7 @@
 import { useEffect, useState, type FocusEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { ApiFehler, api, datumDE, geld, heuteISO, pdfSpeichern } from "./api";
 import { DatenListe, zeilenWahl, type Sortierung } from "./liste";
-import { LinkIntern, gehe } from "./nav";
+import { AktionsMenue, LinkIntern, gehe } from "./nav";
 import { DateiLink, PdfVorschau } from "./vorschau";
 
 type Kunde = { kunden_id: number; name1: string };
@@ -284,12 +284,12 @@ export function RechnungenSeite({ rechnungId, onFehler }: { rechnungId: number |
             onKontext={(event, index) => setMenu({ x: event.clientX, y: event.clientY, rechnung: liste[index] })}
             klasse={(rechnung) => rechnung.archiv ? "archiv" : !rechnung.rechnungs_nr ? "entwurf" : cent(rechnung.bezahlt) === cent(rechnung.brutto) ? "" : "offen"}
             spalten={[
-              { key: "nummer", titel: "Nummer", zelle: nummerText },
-              { key: "datum", titel: "Datum", zelle: (rechnung) => datumDE(rechnung.datum) },
+              { key: "nummer", titel: "Nummer", zelle: nummerText, nowrap: true },
+              { key: "datum", titel: "Datum", zelle: (rechnung) => datumDE(rechnung.datum), nowrap: true },
               { key: "kunde", titel: "Kunde", zelle: (rechnung) => rechnung.name1 || "—" },
-              { key: "brutto", titel: "Brutto", zelle: (rechnung) => geld(rechnung.brutto) },
-              { key: "bezahlt", titel: "Bezahlt", zelle: (rechnung) => geld(rechnung.bezahlt) },
-              { key: "stb", titel: "StB", zelle: (rechnung) => rechnung.datev_gesendet ? datumDE(rechnung.datev_gesendet) : (rechnung.rechnungs_nr ? "offen" : "—") },
+              { key: "brutto", titel: "Brutto", zelle: (rechnung) => geld(rechnung.brutto), ausrichtung: "rechts", nowrap: true },
+              { key: "bezahlt", titel: "Bezahlt", zelle: (rechnung) => geld(rechnung.bezahlt), ausrichtung: "rechts", nowrap: true },
+              { key: "stb", titel: "StB", zelle: (rechnung) => rechnung.datev_gesendet ? datumDE(rechnung.datev_gesendet) : (rechnung.rechnungs_nr ? "offen" : "—"), nowrap: true },
             ]}
           />
         </div>
@@ -578,52 +578,49 @@ function RechnungEditor({
             </button>
           )}
         </div>
-        <details className="mehr-menue">
-          <summary className="button secondary">Weitere Aktionen ▾</summary>
-          <div className="mehr-liste" onClick={(event) => { const d = event.currentTarget.closest("details"); if (d) d.open = false; }}>
-            {hatNummer && (
-              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/senden", { art: "rechnung" }, "Rechnung per E-Mail gesendet.")}>
-                Per E-Mail an Kunden senden
-              </button>
-            )}
-            {istOffen && (
-              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/zahlung", { betrag: rechnung.brutto, datum: heuteISO() }, "Als bezahlt markiert.")}>
-                Als bezahlt markieren ({geld(rechnung.brutto)})
-              </button>
-            )}
-            {hatNummer && (
-              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/datev", undefined, "An DATEV gesendet.")}>
-                An DATEV senden
-              </button>
-            )}
+        <AktionsMenue titel="Weitere Aktionen" resetKey={id}>
+          {hatNummer && (
+            <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/senden", { art: "rechnung" }, "Rechnung per E-Mail gesendet.")}>
+              Per E-Mail an Kunden senden
+            </button>
+          )}
+          {istOffen && (
+            <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/zahlung", { betrag: rechnung.brutto, datum: heuteISO() }, "Als bezahlt markiert.")}>
+              Als bezahlt markieren ({geld(rechnung.brutto)})
+            </button>
+          )}
+          {hatNummer && (
+            <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/datev", undefined, "An DATEV gesendet.")}>
+              An DATEV senden
+            </button>
+          )}
+          <button type="button" onClick={async () => {
+            try {
+              const neu = await api<Rechnung>("/api/rechnungen/" + id + "/kopie", { method: "POST" });
+              gehe("/rechnungen/" + neu.rechnungs_id);
+            } catch (exc) {
+              onFehler(exc instanceof ApiFehler ? exc.message : "Kopie fehlgeschlagen.");
+            }
+          }}>Als neuen Entwurf kopieren</button>
+          {hatNummer && (
+            <button type="button" onClick={() => pdfSpeichern("/api/rechnungen/" + id + "/mahnung", {}, "Mahnung.pdf").catch((exc) => onFehler(exc instanceof Error ? exc.message : "Mahnung fehlgeschlagen."))}>
+              Mahnung als PDF laden
+            </button>
+          )}
+          {hatNummer && (
             <button type="button" onClick={async () => {
+              if (!window.confirm("Soll die Rechnung storniert werden?")) return;
               try {
-                const neu = await api<Rechnung>("/api/rechnungen/" + id + "/kopie", { method: "POST" });
+                const neu = await api<Rechnung>("/api/rechnungen/" + id + "/storno", { method: "POST" });
                 gehe("/rechnungen/" + neu.rechnungs_id);
               } catch (exc) {
-                onFehler(exc instanceof ApiFehler ? exc.message : "Kopie fehlgeschlagen.");
+                onFehler(exc instanceof ApiFehler ? exc.message : "Storno fehlgeschlagen.");
               }
-            }}>Als neuen Entwurf kopieren</button>
-            {hatNummer && (
-              <button type="button" onClick={() => pdfSpeichern("/api/rechnungen/" + id + "/mahnung", {}, "Mahnung.pdf").catch((exc) => onFehler(exc instanceof Error ? exc.message : "Mahnung fehlgeschlagen."))}>
-                Mahnung als PDF laden
-              </button>
-            )}
-            {hatNummer && (
-              <button type="button" onClick={async () => {
-                if (!window.confirm("Soll die Rechnung storniert werden?")) return;
-                try {
-                  const neu = await api<Rechnung>("/api/rechnungen/" + id + "/storno", { method: "POST" });
-                  gehe("/rechnungen/" + neu.rechnungs_id);
-                } catch (exc) {
-                  onFehler(exc instanceof ApiFehler ? exc.message : "Storno fehlgeschlagen.");
-                }
-              }}>Stornorechnung erstellen</button>
-            )}
-            <hr />
-            <button type="button" className="menue-gefahr" onClick={onLoeschen}>Rechnung löschen</button>
-          </div>
-        </details>
+            }}>Stornorechnung erstellen</button>
+          )}
+          <hr />
+          <button type="button" className="menue-gefahr" onClick={onLoeschen}>Rechnung löschen</button>
+        </AktionsMenue>
       </div>
 
       {meldung && <p className="erfolg-hinweis" role="status">{meldung}</p>}

@@ -333,12 +333,12 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
             setMenu({ x: event.clientX, y: event.clientY, ids: zielIds, aktuell: zeile.quelle });
           }}
           spalten={[
-            { key: "eingang", titel: "Eingang", zelle: (beleg) => datumDE(beleg.eingang) || "—" },
+            { key: "eingang", titel: "Eingang", zelle: (beleg) => datumDE(beleg.eingang) || "—", nowrap: true },
             { key: "partner", titel: "Geschäftspartner", zelle: (beleg) => beleg.partner || beleg.dateiname },
-            { key: "betrag", titel: "Betrag", zelle: (beleg) => beleg.betrag ? geld(beleg.betrag) : "—" },
-            { key: "datum", titel: "Belegdatum", zelle: (beleg) => datumDE(beleg.datum) || "—" },
-            { key: "konto", titel: "Konto", zelle: (beleg) => kontoName(beleg.quelle) },
-            { key: "status", titel: "Status", zelle: (beleg) => beleg.datev_gesendet ? `StB ${datumDE(beleg.datev_gesendet)}` : beleg.bewegung_id ? "zugeordnet" : "offen" },
+            { key: "betrag", titel: "Betrag", zelle: (beleg) => beleg.betrag ? geld(beleg.betrag) : "—", ausrichtung: "rechts", nowrap: true },
+            { key: "datum", titel: "Belegdatum", zelle: (beleg) => datumDE(beleg.datum) || "—", nowrap: true },
+            { key: "konto", titel: "Konto", zelle: (beleg) => kontoName(beleg.quelle), nowrap: true },
+            { key: "status", titel: "Status", zelle: (beleg) => beleg.datev_gesendet ? `StB ${datumDE(beleg.datev_gesendet)}` : beleg.bewegung_id ? "zugeordnet" : "offen", nowrap: true },
             { key: "dateiname", titel: "Datei", zelle: (beleg) => beleg.dateiname },
           ]}
         />
@@ -393,7 +393,7 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
           <button type="button" className="secondary" onClick={() => void belegeAnDatevSenden([aktiv.beleg_id], aktiv.quelle)}>
             An DATEV
           </button>
-          <button type="button" className="danger kompakt-knopf" onClick={() => void loeschen(aktiv.beleg_id)}>
+          <button type="button" className="danger" onClick={() => void loeschen(aktiv.beleg_id)}>
             Löschen
           </button>
         </div>
@@ -579,10 +579,9 @@ export function BelegAnsicht({ belegId, name }: { belegId: number; name: string 
 
 export function DateiVorschau({ belegId, name }: { belegId: number; name: string }) {
   const quelle = "/api/belege/" + belegId + "/datei";
-  const bild = /\.(jpe?g|png|gif|webp)$/i.test(name);
   return (
     <div className="vorschau-box">
-      {bild ? <img className="vorschau-bild" src={quelle} alt={name} draggable={false} onDragStart={(event) => event.preventDefault()} /> : <PdfVorschau url={quelle} titel={name} />}
+      <PdfVorschau url={quelle} titel={name} />
       <DateiLink url={quelle} />
     </div>
   );

@@ -295,15 +295,9 @@ def mfa(body: MfaIn, request: Request, db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/auth/passkey/optionen")
-def passkey_optionen(body: PasskeyOptionenIn, request: Request, db: Session = Depends(get_db)) -> dict:
+def passkey_optionen(_body: PasskeyOptionenIn, request: Request, _db: Session = Depends(get_db)) -> dict:
     attempt(client_key(request, "passkey-options"), PASSKEY_OPTIONS_MAX, PASSKEY_OPTIONS_WINDOW)
-    passkeys: list[Passkey] = []
-    if body.benutzername:
-        key = benutzername_norm(body.benutzername)
-        benutzer = db.scalar(select(Benutzer).where(func.lower(Benutzer.benutzername) == key))
-        if benutzer is not None and benutzer.aktiv:
-            passkeys = _passkeys(db, benutzer)
-    optionen, _ = anmelde_optionen(request, passkeys)
+    optionen, _ = anmelde_optionen(request)
     request.session[WEBAUTHN_AUTH_KEY] = {
         "challenge": bytes_to_base64url(optionen.challenge),
         "exp": _jetzt_ts() + WEBAUTHN_TTL,
@@ -1001,6 +995,34 @@ def rechnung_vorschau(rechnungs_id: int, db: Session = Depends(get_db), _: Benut
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="Rechnung_{name}.pdf"', "Cache-Control": "no-store"},
     )
+
+
+@router.get("/rechnungen/{rechnungs_id}/vorschau-info")
+def rechnung_vorschau_info(rechnungs_id: int, db: Session = Depends(get_db), _: Benutzer = Depends(require_login)) -> dict:
+    from app.vorschau import pdf_seiten_anzahl
+
+    rechnung = _rechnung(db, rechnungs_id)
+    berechne(rechnung)
+    original = db.get(Rechnung, rechnung.storno_zu_rechnung_id) if rechnung.storno_zu_rechnung_id else None
+    pdf = rechnung_pdf(rechnung, original, stammdaten=stammdaten_lesen(db))
+    return {"art": "pdf", "seiten": pdf_seiten_anzahl(pdf)}
+
+
+@router.get("/rechnungen/{rechnungs_id}/vorschau-seite/{seite}")
+def rechnung_vorschau_seite(
+    rechnungs_id: int, seite: int, db: Session = Depends(get_db), _: Benutzer = Depends(require_login)
+) -> Response:
+    from app.vorschau import pdf_seite_png
+
+    rechnung = _rechnung(db, rechnungs_id)
+    berechne(rechnung)
+    original = db.get(Rechnung, rechnung.storno_zu_rechnung_id) if rechnung.storno_zu_rechnung_id else None
+    pdf = rechnung_pdf(rechnung, original, stammdaten=stammdaten_lesen(db))
+    try:
+        png = pdf_seite_png(pdf, seite)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/rechnungen/{rechnungs_id}")

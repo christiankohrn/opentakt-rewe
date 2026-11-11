@@ -758,155 +758,199 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
       </div>
 
       {reiter === "stammdaten" && stammdaten && (
-        <form className="card" onSubmit={(event) => void stammdatenSpeichern(event)}>
-          <h2>Unternehmens-Stammdaten & Rechnungslayout</h2>
-          <p className="hinweis">
-            Diese Angaben werden für die Erstellung von Ausgangsrechnungen (PDF, E-Rechnung/ZUGFeRD, EPC-Zahlcode, Mahnungen) sowie für das Ausfiltern eigener Kennungen bei der Belegerkennung verwendet.
-          </p>
-          <div className="optionen-zwei" style={{ marginTop: "0.8rem" }}>
-            <div className="form-gruppen">
-              <h3>Absender & Kontakt</h3>
-              <label>Name / Firma
-                <input value={stammdaten.name} onChange={(event) => setStammdaten({ ...stammdaten, name: event.target.value })} required />
-              </label>
-              <label>Straße & Hausnummer (Brief)
-                <input value={stammdaten.strasse_brief} onChange={(event) => setStammdaten({ ...stammdaten, strasse_brief: event.target.value })} />
-              </label>
-              <label>Straße & Hausnummer (XRechnung-XML)
-                <input value={stammdaten.strasse_xml} onChange={(event) => setStammdaten({ ...stammdaten, strasse_xml: event.target.value })} placeholder="wird sonst aus Straße gebildet" />
-              </label>
-              <div className="plz-ort-land">
-                <label>PLZ
-                  <input value={stammdaten.plz} onChange={(event) => setStammdaten({ ...stammdaten, plz: event.target.value })} />
-                </label>
-                <label>Ort
-                  <input value={stammdaten.ort} onChange={(event) => setStammdaten({ ...stammdaten, ort: event.target.value })} />
-                </label>
-                <label>Land
-                  <input value={stammdaten.land} onChange={(event) => setStammdaten({ ...stammdaten, land: event.target.value })} />
-                </label>
-              </div>
-              <label>Telefon
-                <input value={stammdaten.telefon} onChange={(event) => setStammdaten({ ...stammdaten, telefon: event.target.value })} />
-              </label>
-              <label>E-Mail
-                <input value={stammdaten.email} onChange={(event) => setStammdaten({ ...stammdaten, email: event.target.value })} />
-              </label>
+        <form className="optionen-stapel" onSubmit={(event) => void stammdatenSpeichern(event)}>
+          <div className="karten-kopf optionen-sektion-kopf">
+            <div>
+              <h2>Unternehmens-Stammdaten & Rechnungslayout</h2>
+              <p className="hinweis">
+                Für Ausgangsrechnungen (PDF, ZUGFeRD/XRechnung, EPC-QR-Code, Mahnungen) und zum Ausfiltern eigener Kennungen bei der Belegerkennung.
+              </p>
             </div>
-
-            <div className="form-gruppen">
-              <h3>Steuern & Bankverbindung (für Rechnung / ZUGFeRD / QR-Code)</h3>
-              <div className="row">
-                <label style={{ flex: 1 }}>Steuernummer
-                  <input value={stammdaten.steuernummer} onChange={(event) => setStammdaten({ ...stammdaten, steuernummer: event.target.value })} />
-                </label>
-                <label style={{ flex: 1 }}>USt-IdNr.
-                  <input value={stammdaten.ust_id} onChange={(event) => setStammdaten({ ...stammdaten, ust_id: event.target.value })} />
-                </label>
-              </div>
-              <label>Bankname (auf Rechnung)
-                <input value={stammdaten.bank_name} onChange={(event) => setStammdaten({ ...stammdaten, bank_name: event.target.value })} />
-              </label>
-              <div className="row">
-                <label style={{ flex: 2 }}>IBAN
-                  <input value={stammdaten.bank_iban} onChange={(event) => setStammdaten({ ...stammdaten, bank_iban: event.target.value })} />
-                </label>
-                <label style={{ flex: 1 }}>BIC
-                  <input value={stammdaten.bank_bic} onChange={(event) => setStammdaten({ ...stammdaten, bank_bic: event.target.value })} />
-                </label>
-              </div>
-              <h3>Rechnungstexte & Layout</h3>
-              <label>Fußzeile / Tätigkeitszeile
-                <input value={stammdaten.fusszeile} onChange={(event) => setStammdaten({ ...stammdaten, fusszeile: event.target.value })} />
-              </label>
-              <label>Einleitungstext
-                <input value={stammdaten.einleitungstext} onChange={(event) => setStammdaten({ ...stammdaten, einleitungstext: event.target.value })} />
-              </label>
-              <div className="row">
-                <label style={{ flex: 2 }}>Zahlungshinweis
-                  <input value={stammdaten.zahlungstext} onChange={(event) => setStammdaten({ ...stammdaten, zahlungstext: event.target.value })} />
-                </label>
-                <label style={{ width: "8rem" }}>Fälligkeit (Tage)
-                  <input
-                    type="number"
-                    min={0}
-                    max={365}
-                    value={stammdaten.zahlungsziel_tage}
-                    onChange={(event) => setStammdaten({ ...stammdaten, zahlungsziel_tage: Number(event.target.value) || 0 })}
-                  />
-                </label>
-              </div>
-              <div className="row">
-                <label style={{ flex: 1 }}>Auftragsreferenz (XRechnung)
-                  <input value={stammdaten.auftrag_referenz} onChange={(event) => setStammdaten({ ...stammdaten, auftrag_referenz: event.target.value })} />
-                </label>
-                <label style={{ flex: 1 }}>Layout-Vorlage
-                  <select value={stammdaten.layout_vorlage} onChange={(event) => setStammdaten({ ...stammdaten, layout_vorlage: event.target.value })}>
-                    <option value="standard">Standard (Schwarz-Weiß, ohne Briefpapier)</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-          </div>
-          <div className="actions" style={{ marginTop: "0.9rem" }}>
             <button type="submit">Stammdaten speichern</button>
           </div>
-          {stammdatenHinweis && <p className="hinweis">{stammdatenHinweis}</p>}
+          {stammdatenHinweis && <p className="erfolg-hinweis" role="status">{stammdatenHinweis}</p>}
+
+          <div className="stammdaten-grid">
+            <section className="card" style={{ marginBottom: 0 }}>
+              <div className="karten-kopf">
+                <div>
+                  <h3>Firma & Anschrift</h3>
+                  <p className="hinweis">Absender auf Briefkopf und in der E-Rechnung.</p>
+                </div>
+              </div>
+              <div className="form-stapel">
+                <label>Name / Firma
+                  <input value={stammdaten.name} onChange={(event) => setStammdaten({ ...stammdaten, name: event.target.value })} required />
+                </label>
+                <div className="form-zwei">
+                  <label>Straße & Hausnummer (Brief)
+                    <input value={stammdaten.strasse_brief} onChange={(event) => setStammdaten({ ...stammdaten, strasse_brief: event.target.value })} />
+                  </label>
+                  <label>Straße & Hausnummer (XML, optional)
+                    <input value={stammdaten.strasse_xml} onChange={(event) => setStammdaten({ ...stammdaten, strasse_xml: event.target.value })} placeholder="sonst wie Brief" />
+                  </label>
+                </div>
+                <div className="plz-ort-land">
+                  <label>PLZ
+                    <input value={stammdaten.plz} onChange={(event) => setStammdaten({ ...stammdaten, plz: event.target.value })} />
+                  </label>
+                  <label>Ort
+                    <input value={stammdaten.ort} onChange={(event) => setStammdaten({ ...stammdaten, ort: event.target.value })} />
+                  </label>
+                  <label>Land
+                    <input value={stammdaten.land} onChange={(event) => setStammdaten({ ...stammdaten, land: event.target.value })} />
+                  </label>
+                </div>
+                <div className="form-zwei">
+                  <label>Telefon
+                    <input type="tel" value={stammdaten.telefon} onChange={(event) => setStammdaten({ ...stammdaten, telefon: event.target.value })} />
+                  </label>
+                  <label>E-Mail
+                    <input type="email" value={stammdaten.email} onChange={(event) => setStammdaten({ ...stammdaten, email: event.target.value })} />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="card" style={{ marginBottom: 0 }}>
+              <div className="karten-kopf">
+                <div>
+                  <h3>Steuern & Bankverbindung</h3>
+                  <p className="hinweis">Pflichtangaben für ZUGFeRD und EPC-Zahlcode.</p>
+                </div>
+              </div>
+              <div className="form-stapel">
+                <div className="form-zwei">
+                  <label>Steuernummer
+                    <input value={stammdaten.steuernummer} onChange={(event) => setStammdaten({ ...stammdaten, steuernummer: event.target.value })} />
+                  </label>
+                  <label>USt-IdNr.
+                    <input value={stammdaten.ust_id} onChange={(event) => setStammdaten({ ...stammdaten, ust_id: event.target.value })} />
+                  </label>
+                </div>
+                <label>Bankname (auf Rechnung)
+                  <input value={stammdaten.bank_name} onChange={(event) => setStammdaten({ ...stammdaten, bank_name: event.target.value })} />
+                </label>
+                <div className="iban-bic-zeile">
+                  <label>IBAN
+                    <input value={stammdaten.bank_iban} onChange={(event) => setStammdaten({ ...stammdaten, bank_iban: event.target.value })} />
+                  </label>
+                  <label>BIC
+                    <input value={stammdaten.bank_bic} onChange={(event) => setStammdaten({ ...stammdaten, bank_bic: event.target.value })} />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="card stammdaten-vollbreite" style={{ marginBottom: 0 }}>
+              <div className="karten-kopf">
+                <div>
+                  <h3>Rechnungstexte & Layout</h3>
+                  <p className="hinweis">Standardtexte, Zahlungsziel und XRechnung-Leitweg/Referenz.</p>
+                </div>
+              </div>
+              <div className="stammdaten-grid-innen">
+                <label>Einleitungstext
+                  <input value={stammdaten.einleitungstext} onChange={(event) => setStammdaten({ ...stammdaten, einleitungstext: event.target.value })} />
+                </label>
+                <label>Fußzeile / Tätigkeitszeile
+                  <input value={stammdaten.fusszeile} onChange={(event) => setStammdaten({ ...stammdaten, fusszeile: event.target.value })} />
+                </label>
+                <div className="zahlung-zeile">
+                  <label>Zahlungshinweis
+                    <input value={stammdaten.zahlungstext} onChange={(event) => setStammdaten({ ...stammdaten, zahlungstext: event.target.value })} />
+                  </label>
+                  <label>Fälligkeit (Tage)
+                    <input
+                      type="number"
+                      min={0}
+                      max={365}
+                      value={stammdaten.zahlungsziel_tage}
+                      onChange={(event) => setStammdaten({ ...stammdaten, zahlungsziel_tage: Number(event.target.value) || 0 })}
+                    />
+                  </label>
+                </div>
+                <div className="form-zwei">
+                  <label>Auftragsreferenz (XRechnung)
+                    <input value={stammdaten.auftrag_referenz} onChange={(event) => setStammdaten({ ...stammdaten, auftrag_referenz: event.target.value })} />
+                  </label>
+                  <label>Layout-Vorlage
+                    <select value={stammdaten.layout_vorlage} onChange={(event) => setStammdaten({ ...stammdaten, layout_vorlage: event.target.value })}>
+                      <option value="standard">Standard (Schwarz-Weiß, ohne Briefpapier)</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </section>
+          </div>
         </form>
       )}
 
       {reiter === "allgemein" && (
         <div className="optionen-stapel">
-          <div className="optionen-zwei">
-            <form className="card" onSubmit={(event) => void nummerSpeichern(event)}>
-              <h2>Nächste Rechnungsnummer</h2>
-              <p>Aktuell vergeben wird als Nächstes: <strong>{gespeichert || "…"}</strong></p>
-              <p className="hinweis">Format yy.nnnn. Die Jahreszahl wird beim Vergeben aus dem Rechnungsdatum gebildet.</p>
-              <div className="row">
-                <label style={{ flex: 1 }}>Nächste Nummer
+          <div className="stammdaten-grid">
+            <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void nummerSpeichern(event)}>
+              <div className="karten-kopf">
+                <div>
+                  <h2>Nächste Rechnungsnummer</h2>
+                  <p className="hinweis">Format yy.nnnn — Jahreszahl wird aus dem Rechnungsdatum gebildet.</p>
+                </div>
+              </div>
+              <p style={{ margin: "0 0 0.7rem" }}>Aktuell als Nächstes: <strong>{gespeichert || "…"}</strong></p>
+              <div className="zahlung-zeile" style={{ alignItems: "end" }}>
+                <label>Nächste Nummer
                   <input value={naechste} onChange={(event) => setNaechste(event.target.value)} inputMode="decimal" />
                 </label>
                 <button type="submit">Speichern</button>
               </div>
-              {nummerHinweis && <p className="hinweis">{nummerHinweis}</p>}
+              {nummerHinweis && <p className="erfolg-hinweis">{nummerHinweis}</p>}
             </form>
 
-            <form className="card" onSubmit={(event) => void versandSpeichern(event)}>
-              <h2>Zentrale E-Mail-Adressen (Steuerberater & Ausgangsrechnungen)</h2>
-              <p className="hinweis">
-                An die <strong>Steuerberater-E-Mail</strong> werden die Bankumsätze als DATEV-Weiterverarbeitungsdatei (Dok.-Nr. 9226961) geschickt, sofern beim Konto der Haken gesetzt ist.
-                An die <strong>Ausgangsrechnungen-E-Mail</strong> gehen die erstellten Ausgangsrechnungen (je Rechnung eine E-Mail ohne Briefpapier).
-              </p>
-              <div className="form-gruppen">
+            <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void versandSpeichern(event)}>
+              <div className="karten-kopf">
+                <div>
+                  <h2>Zentrale Versand-Adressen</h2>
+                  <p className="hinweis">Weiterverarbeitungsdateien (9226961) an StB & Ausgangsrechnungen an DATEV.</p>
+                </div>
+              </div>
+              <div className="form-stapel">
                 <label>E-Mail Steuerberater (für Weiterverarbeitungsdateien)
                   <input
+                    type="email"
                     value={versand.stb_email}
-                    placeholder="z.B. steuerberater@example.org"
+                    placeholder="z. B. steuerberater@example.org"
                     onChange={(event) => setVersand({ ...versand, stb_email: event.target.value })}
                   />
                 </label>
                 <label>DATEV-Upload-E-Mail für Ausgangsrechnungen
                   <input
+                    type="email"
                     value={versand.ausgang_email}
                     placeholder="...@uploadmail.datev.de"
                     onChange={(event) => setVersand({ ...versand, ausgang_email: event.target.value })}
                   />
                 </label>
               </div>
-              <div className="actions">
+              <div className="karten-fuss">
                 <button type="submit">Versand-Adressen speichern</button>
               </div>
-              {versandHinweis && <p className="hinweis">{versandHinweis}</p>}
+              {versandHinweis && <p className="erfolg-hinweis">{versandHinweis}</p>}
             </form>
           </div>
 
-          <form className="card" onSubmit={(event) => void kategorienSpeichern(event)}>
-            <h2>Konten / Kategorien verwalten</h2>
-            <p className="hinweis">
-              Beliebig viele Konten mit frei wählbarem Namen und Schlüssel. Pro Konto kann eine DATEV-Upload-E-Mail für Abrechnungen & Belege (je Beleg 1 E-Mail) hinterlegt werden sowie per Haken festgelegt werden, ob für dieses Konto eine Weiterverarbeitungsdatei (Dok.-Nr. 9226961) an den Steuerberater geschickt wird.
-            </p>
-            <div className="tabelle-scroll">
-              <table className="optionen-tabelle optionen-konten-tabelle">
+          <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void kategorienSpeichern(event)}>
+            <div className="karten-kopf">
+              <div>
+                <h2>Konten & Kategorien ({kategorien.length})</h2>
+                <p className="hinweis">
+                  DATEV-Upload-E-Mail je Konto für Belege & Abrechnungen sowie optionaler Haken für die Weiterverarbeitungsdatei (Dok.-Nr. 9226961) an den Steuerberater.
+                </p>
+              </div>
+              <button type="submit">Konten speichern</button>
+            </div>
+            {kategorienHinweis && <p className="erfolg-hinweis">{kategorienHinweis}</p>}
+            <div className="tabelle-rahmen tabelle-scroll">
+              <table className="daten-tabelle optionen-tabelle optionen-konten-tabelle">
                 <thead>
                   <tr>
                     <th style={{ width: "8.5rem" }}>Schlüssel</th>
@@ -1002,61 +1046,111 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
       )}
 
       {reiter === "verbindung" && (
-        <div className="optionen-grid">
-          {smtp && (
-            <form className="card" onSubmit={(event) => void smtpSpeichern(event)}>
-              <h2>SMTP (E-Mail-Versand)</h2>
-              <div className="form-gruppen">
-                <label>Host<input value={smtp.host} onChange={(event) => setSmtp({ ...smtp, host: event.target.value })} /></label>
-                <label>Port<input value={smtp.port} inputMode="numeric" onChange={(event) => setSmtp({ ...smtp, port: Number(event.target.value) || 0 })} /></label>
-                <label>Benutzer<input value={smtp.benutzer} onChange={(event) => setSmtp({ ...smtp, benutzer: event.target.value })} autoComplete="off" /></label>
-                <label>Passwort
-                  <input
-                    type="password"
-                    name="smtp-passwort"
-                    autoComplete="new-password"
-                    value={passwort}
-                    placeholder={smtp.passwort_gesetzt ? "gesetzt, nur zum Ändern ausfüllen" : ""}
-                    onChange={(event) => setPasswort(event.target.value)}
-                  />
-                </label>
-                <label>Absender<input value={smtp.absender} onChange={(event) => setSmtp({ ...smtp, absender: event.target.value })} /></label>
-              </div>
-              <div className="actions" style={{ marginTop: "0.8rem" }}>
-                <label className="check" style={{ marginRight: "1rem" }}>
-                  <input type="checkbox" checked={smtp.tls} onChange={(event) => setSmtp({ ...smtp, tls: event.target.checked })} />
-                  TLS verschlüsseln
-                </label>
-                <button type="submit">SMTP speichern</button>
-              </div>
-              {smtpHinweis && <p className="hinweis">{smtpHinweis}</p>}
-            </form>
-          )}
+        <div className="optionen-stapel">
+          <div className="stammdaten-grid">
+            {smtp && (
+              <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void smtpSpeichern(event)}>
+                <div className="karten-kopf">
+                  <div>
+                    <h2>SMTP (E-Mail-Versand)</h2>
+                    <p className="hinweis">Für Ausgangsrechnungen, DATEV-Mails und Einladungen.</p>
+                  </div>
+                </div>
+                <div className="form-stapel">
+                  <div className="zahlung-zeile">
+                    <label>Host<input value={smtp.host} placeholder="smtp.beispiel.de" onChange={(event) => setSmtp({ ...smtp, host: event.target.value })} /></label>
+                    <label>Port<input value={smtp.port} inputMode="numeric" onChange={(event) => setSmtp({ ...smtp, port: Number(event.target.value) || 0 })} /></label>
+                  </div>
+                  <div className="form-zwei">
+                    <label>Benutzer<input value={smtp.benutzer} onChange={(event) => setSmtp({ ...smtp, benutzer: event.target.value })} autoComplete="off" /></label>
+                    <label>Passwort
+                      <input
+                        type="password"
+                        name="smtp-passwort"
+                        autoComplete="new-password"
+                        value={passwort}
+                        placeholder={smtp.passwort_gesetzt ? "gesetzt (leer = unverändert)" : ""}
+                        onChange={(event) => setPasswort(event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label>Absender-Adresse<input type="email" value={smtp.absender} onChange={(event) => setSmtp({ ...smtp, absender: event.target.value })} /></label>
+                </div>
+                <div className="karten-fuss">
+                  <label className="check">
+                    <input type="checkbox" checked={smtp.tls} onChange={(event) => setSmtp({ ...smtp, tls: event.target.checked })} />
+                    TLS verschlüsseln
+                  </label>
+                  <button type="submit">SMTP speichern</button>
+                </div>
+                {smtpHinweis && <p className="erfolg-hinweis">{smtpHinweis}</p>}
+              </form>
+            )}
+
+            {azure && (
+              <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void azureSpeichern(event)}>
+                <div className="karten-kopf">
+                  <div>
+                    <h2>Azure KI (Belegerkennung)</h2>
+                    <p className="hinweis">Optionale KI-Unterstützung auf Knopfdruck.</p>
+                  </div>
+                </div>
+                <div className="form-stapel">
+                  <label>Endpoint<input value={azure.endpoint} placeholder="https://....openai.azure.com" onChange={(event) => setAzure({ ...azure, endpoint: event.target.value })} autoComplete="off" /></label>
+                  <label>Deployment / Modell<input value={azure.deployment} onChange={(event) => setAzure({ ...azure, deployment: event.target.value })} autoComplete="off" /></label>
+                  <label>API-Schlüssel
+                    <input
+                      type="password"
+                      name="azure-schluessel"
+                      autoComplete="new-password"
+                      value={schluessel}
+                      placeholder={azure.schluessel_gesetzt ? "gesetzt (leer = unverändert)" : ""}
+                      onChange={(event) => setSchluessel(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="karten-fuss">
+                  <button type="button" className="secondary" onClick={() => void azureTest()}>Verbindung testen</button>
+                  <button type="submit">Azure speichern</button>
+                </div>
+                {azureHinweis && <p className="hinweis" style={{ marginTop: "0.5rem" }}>{azureHinweis}</p>}
+              </form>
+            )}
+          </div>
 
           {postfach && (
-            <form className="card" onSubmit={(event) => void postfachSpeichern(event)}>
-              <h2>Beleg-Postfach (IMAP)</h2>
-              <p className="hinweis">
-                Eigenes Postfach nur für Belege. Der Abruf holt ungesehene Mails, importiert PDF- und Bild-Anhänge
-                und markiert die Mails als gelesen. Auf dem Server läuft der Abruf automatisch alle 15 Minuten.
-              </p>
-              <div className="form-gruppen">
-                <label>Host<input value={postfach.host} placeholder="imap.beispiel.de" onChange={(event) => setPostfach({ ...postfach, host: event.target.value })} autoComplete="off" /></label>
-                <label>Port<input value={postfach.port} inputMode="numeric" onChange={(event) => setPostfach({ ...postfach, port: Number(event.target.value) || 0 })} /></label>
-                <label>Benutzer<input value={postfach.benutzer} onChange={(event) => setPostfach({ ...postfach, benutzer: event.target.value })} autoComplete="off" /></label>
-                <label>Passwort
-                  <input
-                    type="password"
-                    name="imap-passwort"
-                    autoComplete="new-password"
-                    value={postfachPasswort}
-                    placeholder={postfach.passwort_gesetzt ? "gesetzt, nur zum Ändern ausfüllen" : ""}
-                    onChange={(event) => setPostfachPasswort(event.target.value)}
-                  />
-                </label>
-                <label>Ordner<input value={postfach.ordner} onChange={(event) => setPostfach({ ...postfach, ordner: event.target.value })} /></label>
-                <label>Erledigt-Ordner (optional)<input value={postfach.erledigt} placeholder="leer = nur als gelesen markieren" onChange={(event) => setPostfach({ ...postfach, erledigt: event.target.value })} /></label>
-                <label>Quelle für Mail-Belege
+            <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void postfachSpeichern(event)}>
+              <div className="karten-kopf">
+                <div>
+                  <h2>Beleg-Postfach (IMAP)</h2>
+                  <p className="hinweis">
+                    Ungesehene Mails werden automatisch alle 15 Minuten abgerufen, PDF-/Bild-Anhänge als Belege importiert und Mails als gelesen markiert.
+                  </p>
+                </div>
+              </div>
+              <div className="stammdaten-grid-innen">
+                <div className="zahlung-zeile">
+                  <label>IMAP-Host<input value={postfach.host} placeholder="imap.beispiel.de" onChange={(event) => setPostfach({ ...postfach, host: event.target.value })} autoComplete="off" /></label>
+                  <label>Port<input value={postfach.port} inputMode="numeric" onChange={(event) => setPostfach({ ...postfach, port: Number(event.target.value) || 0 })} /></label>
+                </div>
+                <div className="form-zwei">
+                  <label>Benutzer<input value={postfach.benutzer} onChange={(event) => setPostfach({ ...postfach, benutzer: event.target.value })} autoComplete="off" /></label>
+                  <label>Passwort
+                    <input
+                      type="password"
+                      name="imap-passwort"
+                      autoComplete="new-password"
+                      value={postfachPasswort}
+                      placeholder={postfach.passwort_gesetzt ? "gesetzt (leer = unverändert)" : ""}
+                      onChange={(event) => setPostfachPasswort(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="form-zwei">
+                  <label>Eingangs-Ordner<input value={postfach.ordner} onChange={(event) => setPostfach({ ...postfach, ordner: event.target.value })} /></label>
+                  <label>Erledigt-Ordner (optional)<input value={postfach.erledigt} placeholder="leer = nur als gelesen markieren" onChange={(event) => setPostfach({ ...postfach, erledigt: event.target.value })} /></label>
+                </div>
+                <label>Ziel-Konto für Mail-Belege
                   <select value={postfach.quelle} onChange={(event) => setPostfach({ ...postfach, quelle: event.target.value })}>
                     {!kategorien.some((k) => k.schluessel === postfach.quelle) && !["eingang", "scan", "datei"].includes(postfach.quelle) && (
                       <option value={postfach.quelle}>{postfach.quelle}</option>
@@ -1070,69 +1164,46 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                   </select>
                 </label>
               </div>
-              <div className="actions" style={{ marginTop: "0.8rem" }}>
-                <label className="check" style={{ marginRight: "1rem" }}>
+              <div className="karten-fuss">
+                <label className="check">
                   <input type="checkbox" checked={postfach.tls} onChange={(event) => setPostfach({ ...postfach, tls: event.target.checked })} />
                   TLS verschlüsseln
                 </label>
-                <button type="submit">Postfach speichern</button>
-                <button type="button" className="secondary" onClick={() => void postfachTest()}>Verbindung testen</button>
-                <button type="button" className="secondary" disabled={postfachLaeuft} onClick={() => void postfachAbrufen()}>
-                  {postfachLaeuft ? "Abruf läuft …" : "Jetzt abrufen"}
-                </button>
+                <div className="actions" style={{ margin: 0 }}>
+                  <button type="button" className="secondary" onClick={() => void postfachTest()}>Verbindung testen</button>
+                  <button type="button" className="secondary" disabled={postfachLaeuft} onClick={() => void postfachAbrufen()}>
+                    {postfachLaeuft ? "Abruf läuft …" : "Jetzt abrufen"}
+                  </button>
+                  <button type="submit">Postfach speichern</button>
+                </div>
               </div>
-              {postfachHinweis && <p className="hinweis">{postfachHinweis}</p>}
+              {postfachHinweis && <p className="hinweis" style={{ marginTop: "0.5rem" }}>{postfachHinweis}</p>}
               {postfachProtokoll.length > 0 && (
-                <div className="tabelle-scroll">
-                  <table className="optionen-tabelle dicht">
+                <div className="tabelle-rahmen tabelle-scroll" style={{ marginTop: "0.75rem" }}>
+                  <table className="daten-tabelle dicht">
                     <thead>
                       <tr>
                         <th>Zeitpunkt</th>
                         <th>Absender</th>
                         <th>Betreff</th>
-                        <th>Dateien</th>
-                        <th>Belege</th>
+                        <th className="zelle-rechts">Dateien</th>
+                        <th className="zelle-rechts">Belege</th>
                       </tr>
                     </thead>
                     <tbody>
                       {postfachProtokoll.slice(0, 10).map((zeile) => (
                         <tr key={zeile.import_id}>
-                          <td>{zeile.zeitpunkt ? zeile.zeitpunkt.replace("T", " ") : "—"}</td>
+                          <td className="zelle-nowrap">{zeile.zeitpunkt ? zeile.zeitpunkt.replace("T", " ") : "—"}</td>
                           <td>{zeile.absender || "—"}</td>
                           <td>{zeile.betreff || "—"}</td>
-                          <td>{zeile.dateien}</td>
-                          <td>{zeile.beleg_ids.length}</td>
+                          <td className="zelle-rechts">{zeile.dateien}</td>
+                          <td className="zelle-rechts">{zeile.beleg_ids.length}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </form>
-          )}
-
-          {azure && (
-            <form className="card" onSubmit={(event) => void azureSpeichern(event)}>
-              <h2>Azure KI (Belegerkennung)</h2>
-              <div className="form-gruppen">
-                <label>Endpoint<input value={azure.endpoint} onChange={(event) => setAzure({ ...azure, endpoint: event.target.value })} autoComplete="off" /></label>
-                <label>Deployment / Modell<input value={azure.deployment} onChange={(event) => setAzure({ ...azure, deployment: event.target.value })} autoComplete="off" /></label>
-                <label>Schlüssel
-                  <input
-                    type="password"
-                    name="azure-schluessel"
-                    autoComplete="new-password"
-                    value={schluessel}
-                    placeholder={azure.schluessel_gesetzt ? "gesetzt, nur zum Ändern ausfüllen" : ""}
-                    onChange={(event) => setSchluessel(event.target.value)}
-                  />
-                </label>
-              </div>
-              <div className="actions" style={{ marginTop: "0.8rem" }}>
-                <button type="submit">Azure speichern</button>
-                <button type="button" className="secondary" onClick={() => void azureTest()}>Verbindung testen</button>
-              </div>
-              {azureHinweis && <p className="hinweis">{azureHinweis}</p>}
             </form>
           )}
         </div>
@@ -1249,7 +1320,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                 onChange={(event) => setPartnerSuche(event.target.value)}
               />
               <div className="partner-scroll">
-                <table>
+                <table className="daten-tabelle">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -1263,7 +1334,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                         className={`click ${index === partnerWahl ? "aktiv" : ""}`}
                         onClick={() => setPartnerWahl(index)}
                       >
-                        <td><strong>{eintrag.name || "Unbenannt"}</strong></td>
+                        <td>{eintrag.name || "Unbenannt"}</td>
                         <td className="hinweis">{eintrag.ust_id || eintrag.iban || eintrag.steuernummer || "—"}</td>
                       </tr>
                     ))}
