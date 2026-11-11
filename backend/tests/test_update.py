@@ -116,6 +116,15 @@ def test_status_meldet_version_und_lokal_nicht_unterstuetzt(session, admin_pw):
     assert "github.com" in antwort["quelle"]["url"]
 
 
+def test_status_schreiben_legt_ordner_an(tmp_path, monkeypatch):
+    import app.aktualisierung as akt
+
+    monkeypatch.setattr(akt, "daten_ordner", lambda settings=None: tmp_path / "neu" / "daten")
+    geschrieben = akt.status_schreiben({"letzte_pruefung": "x"})
+    assert geschrieben["letzte_pruefung"] == "x"
+    assert (tmp_path / "neu" / "daten" / "update-status.json").is_file()
+
+
 def test_check_speichert_remote_stand(session, admin_pw, daten_tmp, monkeypatch):
     import app.aktualisierung as akt
 

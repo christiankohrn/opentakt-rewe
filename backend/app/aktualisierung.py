@@ -221,6 +221,7 @@ def status_schreiben(teil: dict) -> dict:
     aktuell = status_lesen()
     aktuell.update(teil)
     pfad = daten_ordner() / STATUS_DATEI
+    pfad.parent.mkdir(parents=True, exist_ok=True)
     tmp = pfad.with_suffix(".tmp")
     tmp.write_text(json.dumps(aktuell, ensure_ascii=False), encoding="utf-8")
     tmp.replace(pfad)
