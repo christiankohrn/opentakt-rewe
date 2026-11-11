@@ -598,6 +598,40 @@ def partner_setzen(body: list[PartnerIn], session: Session = Depends(get_db)) ->
     return [_partner_dict(zeile) for zeile in session.scalars(select(Geschaeftspartner).order_by(Geschaeftspartner.name))]
 
 
+@router.post("/belege/{beleg_id}/ocr")
+def beleg_ocr(beleg_id: int, session: Session = Depends(get_db)) -> dict:
+    from app.belege import ocr_nachholen
+
+    try:
+        beleg = ocr_nachholen(session, beleg_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    bewegung = session.scalar(select(Bewegung).where(Bewegung.beleg_id == beleg.beleg_id))
+    return beleg_dict(beleg, bewegung)
+
+
+@router.post("/mailimport/abrufen")
+def mailimport_abrufen(session: Session = Depends(get_db)) -> dict:
+    from app.mailimport import abrufen
+
+    try:
+        ergebnis = abrufen(session)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from None
+    ergebnis["zugeordnet"] = zuordnen(session)
+    ergebnis["stand"] = stand(session)
+    return ergebnis
+
+
+@router.get("/mailimport/protokoll")
+def mailimport_protokoll(session: Session = Depends(get_db)) -> list:
+    from app.mailimport import protokoll
+
+    return protokoll(session)
+
+
 @router.get("/belege/{beleg_id}/datei")
 def beleg_datei(beleg_id: int, session: Session = Depends(get_db)) -> Response:
     from app.belege import beleg_inhalt_laden

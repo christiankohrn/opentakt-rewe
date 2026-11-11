@@ -19,6 +19,8 @@ Das Skript richtet ein:
 - `buchhaltung.service` (API auf `127.0.0.1:8000`), Migrationen laufen beim Start
 - `buchhaltung-serie.timer` (täglicher Serienlauf, 6 Uhr)
 - `buchhaltung-backup.timer` (`pg_dump` nach `/var/backups/buchhaltung`, 14 Tage aufgehoben)
+- `buchhaltung-mailimport.timer` (Postfach-Abruf alle 15 Minuten; ruht ohne `IMAP_HOST`)
+- Texterkennung (`tesseract-ocr` mit deutschen und englischen Daten) für Belege ohne Textteil
 - nginx-Site für `DOMAIN`
 
 Zertifikate holt das Skript **nicht**. Die Site wird nur verlinkt, wenn
@@ -61,6 +63,7 @@ Prüfung: `curl -fsS https://rewe.firma.de/api/health`. Zeigt der Browser noch d
 
 ## Hinweise
 
-- SMTP und Azure-KI lassen sich in der UI unter Einstellungen eintragen; sie landen in `/etc/buchhaltung.env`.
+- SMTP, Beleg-Postfach (IMAP) und Azure-KI lassen sich in der UI unter Einstellungen eintragen; sie landen in `/etc/buchhaltung.env`.
+- Für das Postfach ein eigenes Postfach nur für Belege verwenden. Der Abruf importiert PDF- und Bild-Anhänge ungesehener Mails und markiert sie als gelesen (auf Wunsch sortiert er sie in den Erledigt-Ordner). Von Hand: `su buchhaltung -s /bin/sh -c "cd /opt/buchhaltung/backend && .venv/bin/python -m app.cli mailimport"`.
 - Die Legacy-Variable `BUCHHALTUNG_PASSWORD` wird nur noch als Rückfall für `ADMIN_PASSWORT` beim allerersten Start gelesen.
 - Logs: `journalctl -u buchhaltung.service`, Timer: `systemctl list-timers 'buchhaltung-*'`.

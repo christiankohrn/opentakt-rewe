@@ -281,9 +281,11 @@ def test_start_wendet_migrationen_an(tmp_path, monkeypatch):
         Base.metadata.create_all(engine)
         with engine.begin() as verbindung:
             verbindung.exec_driver_sql("ALTER TABLE rechnungen DROP COLUMN datev_gesendet")
+            verbindung.exec_driver_sql("ALTER TABLE belege DROP COLUMN ocr_status")
             verbindung.exec_driver_sql("ALTER TABLE kategorien DROP COLUMN weiterverarbeitung")
             verbindung.exec_driver_sql("ALTER TABLE kategorien DROP COLUMN iban")
             verbindung.exec_driver_sql("ALTER TABLE kategorien DROP COLUMN bic")
+            verbindung.exec_driver_sql("DROP TABLE mail_importe")
             verbindung.exec_driver_sql("DROP TABLE export_vorgaenge")
             verbindung.exec_driver_sql("DROP TABLE benutzer")
             verbindung.exec_driver_sql("DROP TABLE mail_tokens")
@@ -297,6 +299,9 @@ def test_start_wendet_migrationen_an(tmp_path, monkeypatch):
         kat_spalten = {spalte["name"] for spalte in inspect(engine).get_columns("kategorien")}
         assert {"weiterverarbeitung", "iban", "bic"} <= kat_spalten
         tabellen = inspect(engine).get_table_names()
+        assert "mail_importe" in tabellen
+        beleg_spalten = {spalte["name"] for spalte in inspect(engine).get_columns("belege")}
+        assert "ocr_status" in beleg_spalten
         assert "export_vorgaenge" in tabellen
         assert "benutzer" in tabellen
         assert {"mail_tokens", "backup_codes", "passkeys", "audit_ereignisse"} <= set(tabellen)

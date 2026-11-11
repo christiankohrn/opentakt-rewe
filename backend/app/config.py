@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     azure_endpoint: str = ""
     azure_api_key: str = ""
     azure_deployment: str = ""
+    # Beleg-Postfach (IMAP). Leer = kein automatischer Mail-Import.
+    imap_host: str = ""
+    imap_port: int = 993
+    imap_user: str = ""
+    imap_password: str = ""
+    imap_tls: bool = True
+    imap_ordner: str = "INBOX"
+    # Ablage für verarbeitete Mails. Leer = nur als gelesen markieren.
+    imap_erledigt: str = ""
+    # Quelle, unter der Mail-Anhänge als Belege landen.
+    imap_quelle: str = "eingang"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

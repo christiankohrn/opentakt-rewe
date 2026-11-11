@@ -37,7 +37,8 @@ echo "== Pakete =="
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y postgresql postgresql-contrib python3-venv rsync nginx \
-  fonts-dejavu-core fonts-liberation curl ca-certificates gnupg
+  fonts-dejavu-core fonts-liberation curl ca-certificates gnupg \
+  tesseract-ocr tesseract-ocr-deu tesseract-ocr-eng
 
 if ! command -v node >/dev/null 2>&1; then
   echo "== Node.js 22 =="
@@ -88,6 +89,14 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "SMTP_PASSWORD="
     echo "SMTP_FROM="
     echo "SMTP_TLS=true"
+    echo "IMAP_HOST="
+    echo "IMAP_PORT=993"
+    echo "IMAP_USER="
+    echo "IMAP_PASSWORD="
+    echo "IMAP_TLS=true"
+    echo "IMAP_ORDNER=INBOX"
+    echo "IMAP_ERLEDIGT="
+    echo "IMAP_QUELLE=eingang"
     echo "MUSTANG_JAVA="
     echo "MUSTANG_JAR="
     echo "AZURE_ENDPOINT="
@@ -158,6 +167,29 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+cat > /etc/systemd/system/buchhaltung-mailimport.service <<EOF
+[Unit]
+Description=Opentakt Rewe Beleg-Import aus dem Postfach
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=$DB_USER
+WorkingDirectory=$APP/backend
+EnvironmentFile=$ENV_FILE
+ExecStart=$APP/backend/.venv/bin/python -m app.cli mailimport
+EOF
+cat > /etc/systemd/system/buchhaltung-mailimport.timer <<EOF
+[Unit]
+Description=Opentakt Rewe Postfach-Abruf alle 15 Minuten
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
 cat > /etc/systemd/system/buchhaltung-backup.service <<'EOF'
 [Unit]
 Description=Opentakt Rewe Datenbank-Backup
@@ -181,6 +213,7 @@ systemctl daemon-reload
 systemctl enable --now buchhaltung.service
 systemctl enable --now buchhaltung-serie.timer
 systemctl enable --now buchhaltung-backup.timer
+systemctl enable --now buchhaltung-mailimport.timer
 
 echo "== nginx =="
 SITE=/etc/nginx/sites-available/buchhaltung

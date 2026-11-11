@@ -8,6 +8,7 @@ import { KontozeilenSeite } from "./Kontozeilen";
 import { EinstellungenSeite } from "./Optionen";
 import { RechnungenSeite } from "./Rechnungen";
 import { Ablegen } from "./Ablegen";
+import { ScanSeite } from "./Scan";
 import { SicherheitSeite } from "./Sicherheit";
 import { PasswortSetzen, PasswortVergessen } from "./Zugang";
 import { PRODUCT_NAME } from "./brand";
@@ -55,6 +56,7 @@ export function App() {
           <LinkIntern href="/rechnungen" className={route.seite === "rechnungen" ? "active" : ""}>Rechnungen</LinkIntern>
           <LinkIntern href="/kunden" className={route.seite === "kunden" ? "active" : ""}>Kunden</LinkIntern>
           <LinkIntern href="/belege" className={route.seite === "belege" ? "active" : ""}>Belegbearbeitung</LinkIntern>
+          <LinkIntern href="/scan" className={route.seite === "scan" ? "active" : ""}>Scannen</LinkIntern>
           <LinkIntern href="/kontozeilen" className={route.seite === "kontozeilen" ? "active" : ""}>Kontozeilen</LinkIntern>
           <LinkIntern href="/einstellungen" className={route.seite === "einstellungen" ? "active" : ""}>Einstellungen</LinkIntern>
           <LinkIntern href="/sicherheit" className={route.seite === "sicherheit" ? "active" : ""}>Sicherheit</LinkIntern>
@@ -74,6 +76,7 @@ export function App() {
         {route.seite === "rechnungen" && <RechnungenSeite rechnungId={route.id} onFehler={setFehler} />}
         {route.seite === "kunden" && <KundenSeite kundeId={route.id} neu={route.neu} onFehler={setFehler} />}
         {route.seite === "belege" && <BelegeSeite belegId={route.id} onFehler={setFehler} />}
+        {route.seite === "scan" && <ScanSeite onFehler={setFehler} />}
         {route.seite === "kontozeilen" && <KontozeilenSeite bewegungId={route.id} onFehler={setFehler} />}
         {route.seite === "einstellungen" && <EinstellungenSeite onFehler={setFehler} />}
         {route.seite === "sicherheit" && <SicherheitSeite onFehler={setFehler} />}

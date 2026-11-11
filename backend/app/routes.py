@@ -124,12 +124,14 @@ from app.schemas import (
     NummerIn,
     RechnungIn,
     AzureIn,
+    PostfachIn,
     SmtpIn,
     WiedervorlageIn,
     ZahlungIn,
 )
 from app.serialize import geld, kunde_dict, rechnung_dict
 from app.azure_ki import azure_lesen, azure_speichern, azure_testen
+from app.mailimport import postfach_lesen, postfach_speichern, postfach_testen
 from app.smtp_datei import smtp_lesen, smtp_speichern
 
 router = APIRouter(prefix="/api")
@@ -877,6 +879,41 @@ def azure_setzen(body: AzureIn, _: Benutzer = Depends(require_login)) -> dict:
 def azure_verbindung(_: Benutzer = Depends(require_login)) -> dict:
     try:
         return azure_testen()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
+
+
+@router.get("/einstellungen/postfach")
+def postfach_anzeigen(_: Benutzer = Depends(require_login)) -> dict:
+    return postfach_lesen()
+
+
+@router.put("/einstellungen/postfach")
+def postfach_setzen(body: PostfachIn, session: Session = Depends(get_db), _: Benutzer = Depends(require_login)) -> dict:
+    from app.belege import _quelle_gueltig
+
+    if not _quelle_gueltig(session, (body.quelle or "").strip() or "eingang"):
+        raise HTTPException(status_code=400, detail=f"Unbekannte Quelle {body.quelle}.")
+    try:
+        return postfach_speichern(
+            body.host, body.port, body.benutzer, body.ordner, body.erledigt, body.quelle, body.tls, body.passwort
+        )
+    except FileNotFoundError:
+        raise HTTPException(status_code=503, detail="Postfach-Datei fehlt.") from None
+    except PermissionError:
+        raise HTTPException(status_code=503, detail="Postfach-Datei ist nicht beschreibbar.") from None
+    except OSError:
+        raise HTTPException(status_code=503, detail="Postfach-Datei ist nicht beschreibbar.") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+@router.post("/einstellungen/postfach/test")
+def postfach_verbindung(_: Benutzer = Depends(require_login)) -> dict:
+    try:
+        return postfach_testen()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from None
 

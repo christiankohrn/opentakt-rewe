@@ -14,6 +14,9 @@ Opentakt Rewe ist das zweite Produkt unter dem Namen Opentakt, nach [Opentakt Ze
 - Rechnungen mit Positionen, Serienrechnungen, Storno, Mahnungen und Mailversand
 - Kundenverwaltung
 - Belegimport per Drag & Drop (PDF, Bild, CSV, camt) mit Erkennung von Partner, Betrag, Datum und Rechnungsnummer
+- Automatischer Belegimport aus einem eigenen Postfach (IMAP): Anhänge werden als Belege übernommen, Mails als gelesen markiert
+- Lokale Texterkennung (OCR): Belege ohne Textteil werden beim Import automatisch gelesen, sonst als textlos markiert
+- Scan-Seite fürs Smartphone: Beleg fotografieren, Umrisse werden automatisch gesucht, mehrseitige Scans als PDF importieren
 - Kontoauszüge und automatische Zuordnung von Belegen zu Umsätzen
 - E-Rechnung (ZUGFeRD/XRechnung) und EPC-QR-Code auf Rechnungen
 - DATEV-Export (ZIP mit Belegen, Weiterverarbeitungsdatei Dok.-Nr. 9226961) und DATEV-Versand per E-Mail
@@ -96,6 +99,7 @@ Umgebungsvariablen (lokal in `backend/.env`, Produktion in `/etc/buchhaltung.env
 | `COOKIE_SECURE` | `true` hinter HTTPS |
 | `BELEG_ORDNER` | Ablage der Belegdateien, lokal z. B. `./belege` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS` | Mailversand; auch in der UI pflegbar |
+| `IMAP_HOST`, `IMAP_PORT`, `IMAP_USER`, `IMAP_PASSWORD`, `IMAP_TLS`, `IMAP_ORDNER`, `IMAP_ERLEDIGT`, `IMAP_QUELLE` | Beleg-Postfach für den automatischen Import; auch in der UI pflegbar |
 | `AZURE_ENDPOINT`, `AZURE_API_KEY`, `AZURE_DEPLOYMENT` | Optionale KI-Belegerkennung; auch in der UI pflegbar |
 | `MUSTANG_JAVA`, `MUSTANG_JAR` | Optionale E-Rechnungs-Prüfung, leer = aus |
 | `ENVIRONMENT` | `development` oder `production` (Produktion vertraut nur konfigurierten WebAuthn-Origins) |

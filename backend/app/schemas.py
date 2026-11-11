@@ -207,3 +207,14 @@ class AzureIn(BaseModel):
     endpoint: str = ""
     deployment: str = ""
     schluessel: str = ""
+
+
+class PostfachIn(BaseModel):
+    host: str = ""
+    port: int = Field(default=993, ge=1, le=65535)
+    benutzer: str = ""
+    passwort: str = ""
+    ordner: str = "INBOX"
+    erledigt: str = ""
+    quelle: str = "eingang"
+    tls: bool = True

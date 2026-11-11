@@ -35,6 +35,24 @@ type Stammdaten = {
 };
 type EditierbareKategorie = Kategorie & { original_schluessel: string };
 type Azure = { endpoint: string; deployment: string; schluessel_gesetzt: boolean };
+type Postfach = {
+  host: string;
+  port: number;
+  benutzer: string;
+  ordner: string;
+  erledigt: string;
+  quelle: string;
+  tls: boolean;
+  passwort_gesetzt: boolean;
+};
+type PostfachProtokoll = {
+  import_id: number;
+  betreff: string;
+  absender: string;
+  dateien: number;
+  beleg_ids: number[];
+  zeitpunkt: string | null;
+};
 type Kriterium = { kriterium_id: number; schluessel: string; art: string; muster: string };
 type Partner = {
   partner_id: number;
@@ -79,6 +97,11 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
   const [azure, setAzure] = useState<Azure | null>(null);
   const [schluessel, setSchluessel] = useState("");
   const [azureHinweis, setAzureHinweis] = useState("");
+  const [postfach, setPostfach] = useState<Postfach | null>(null);
+  const [postfachPasswort, setPostfachPasswort] = useState("");
+  const [postfachHinweis, setPostfachHinweis] = useState("");
+  const [postfachProtokoll, setPostfachProtokoll] = useState<PostfachProtokoll[]>([]);
+  const [postfachLaeuft, setPostfachLaeuft] = useState(false);
   const [kriterien, setKriterien] = useState<Kriterium[]>([]);
   const [kriterienGeladen, setKriterienGeladen] = useState(false);
   const [kriterienHinweis, setKriterienHinweis] = useState("");
@@ -111,6 +134,12 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
     api<Azure>("/api/einstellungen/azure")
       .then(setAzure)
       .catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Azure nicht geladen."));
+    api<Postfach>("/api/einstellungen/postfach")
+      .then(setPostfach)
+      .catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Postfach nicht geladen."));
+    api<PostfachProtokoll[]>("/api/mailimport/protokoll")
+      .then(setPostfachProtokoll)
+      .catch(() => undefined);
   }, []);
 
   async function nummerSpeichern(event: FormEvent) {
@@ -179,6 +208,66 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
       const text = exc instanceof ApiFehler ? exc.message : "Verbindung fehlgeschlagen.";
       setAzureHinweis(text);
       onFehler(text);
+    }
+  }
+
+  async function postfachSpeichern(event: FormEvent) {
+    event.preventDefault();
+    if (!postfach) return;
+    try {
+      const daten = await api<Postfach>("/api/einstellungen/postfach", {
+        method: "PUT",
+        body: JSON.stringify({
+          host: postfach.host,
+          port: Number(postfach.port),
+          benutzer: postfach.benutzer,
+          ordner: postfach.ordner,
+          erledigt: postfach.erledigt,
+          quelle: postfach.quelle,
+          tls: postfach.tls,
+          passwort: postfachPasswort,
+        }),
+      });
+      setPostfach(daten);
+      setPostfachPasswort("");
+      setPostfachHinweis(postfachPasswort ? "Postfach und Passwort gespeichert." : "Gespeichert. Das Passwort bleibt unverändert.");
+      onFehler("");
+    } catch (exc) {
+      onFehler(exc instanceof ApiFehler ? exc.message : "Postfach nicht gespeichert.");
+    }
+  }
+
+  async function postfachTest() {
+    try {
+      const daten = await api<{ ordner: string; gesamt: number; ungesehen: number }>("/api/einstellungen/postfach/test", { method: "POST" });
+      setPostfachHinweis(`Verbindung steht. Ordner ${daten.ordner}: ${daten.ungesehen} von ${daten.gesamt} ungesehen.`);
+      onFehler("");
+    } catch (exc) {
+      const text = exc instanceof ApiFehler ? exc.message : "Verbindung fehlgeschlagen.";
+      setPostfachHinweis(text);
+      onFehler(text);
+    }
+  }
+
+  async function postfachAbrufen() {
+    setPostfachLaeuft(true);
+    try {
+      const daten = await api<{ mails: number; dateien: number; neu: number; uebersprungen: number; fehler: string[] }>(
+        "/api/mailimport/abrufen",
+        { method: "POST" },
+      );
+      const teile = [`${daten.mails} Mails gelesen, ${daten.neu} neue Belege.`];
+      if (daten.uebersprungen) teile.push(`${daten.uebersprungen} bereits verarbeitet.`);
+      if (daten.fehler.length) teile.push("Fehler: " + daten.fehler.join(" "));
+      setPostfachHinweis(teile.join(" "));
+      setPostfachProtokoll(await api<PostfachProtokoll[]>("/api/mailimport/protokoll"));
+      onFehler("");
+    } catch (exc) {
+      const text = exc instanceof ApiFehler ? exc.message : "Abruf fehlgeschlagen.";
+      setPostfachHinweis(text);
+      onFehler(text);
+    } finally {
+      setPostfachLaeuft(false);
     }
   }
 
@@ -357,7 +446,7 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
             Rechnungen & Konten
           </button>
           <button type="button" className={reiter === "verbindung" ? "" : "secondary"} onClick={() => setReiter("verbindung")}>
-            E-Mail & Azure KI
+            E-Mail, Postfach & Azure KI
           </button>
           <button type="button" className={reiter === "abrechnungen" ? "" : "secondary"} onClick={() => void abrechnungenLaden()}>
             Abrechnungserkennung
@@ -641,6 +730,84 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
                 <button type="submit">SMTP speichern</button>
               </div>
               {smtpHinweis && <p className="hinweis">{smtpHinweis}</p>}
+            </form>
+          )}
+
+          {postfach && (
+            <form className="card" onSubmit={(event) => void postfachSpeichern(event)}>
+              <h2>Beleg-Postfach (IMAP)</h2>
+              <p className="hinweis">
+                Eigenes Postfach nur für Belege. Der Abruf holt ungesehene Mails, importiert PDF- und Bild-Anhänge
+                und markiert die Mails als gelesen. Auf dem Server läuft der Abruf automatisch alle 15 Minuten.
+              </p>
+              <div className="form-gruppen">
+                <label>Host<input value={postfach.host} placeholder="imap.beispiel.de" onChange={(event) => setPostfach({ ...postfach, host: event.target.value })} autoComplete="off" /></label>
+                <label>Port<input value={postfach.port} inputMode="numeric" onChange={(event) => setPostfach({ ...postfach, port: Number(event.target.value) || 0 })} /></label>
+                <label>Benutzer<input value={postfach.benutzer} onChange={(event) => setPostfach({ ...postfach, benutzer: event.target.value })} autoComplete="off" /></label>
+                <label>Passwort
+                  <input
+                    type="password"
+                    name="imap-passwort"
+                    autoComplete="new-password"
+                    value={postfachPasswort}
+                    placeholder={postfach.passwort_gesetzt ? "gesetzt, nur zum Ändern ausfüllen" : ""}
+                    onChange={(event) => setPostfachPasswort(event.target.value)}
+                  />
+                </label>
+                <label>Ordner<input value={postfach.ordner} onChange={(event) => setPostfach({ ...postfach, ordner: event.target.value })} /></label>
+                <label>Erledigt-Ordner (optional)<input value={postfach.erledigt} placeholder="leer = nur als gelesen markieren" onChange={(event) => setPostfach({ ...postfach, erledigt: event.target.value })} /></label>
+                <label>Quelle für Mail-Belege
+                  <select value={postfach.quelle} onChange={(event) => setPostfach({ ...postfach, quelle: event.target.value })}>
+                    {!kategorien.some((k) => k.schluessel === postfach.quelle) && !["eingang", "scan", "datei"].includes(postfach.quelle) && (
+                      <option value={postfach.quelle}>{postfach.quelle}</option>
+                    )}
+                    <option value="eingang">Eingang</option>
+                    <option value="scan">Scan</option>
+                    <option value="datei">Datei</option>
+                    {kategorien.map((kat) => (
+                      <option key={kat.schluessel} value={kat.schluessel}>{kat.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="actions" style={{ marginTop: "0.8rem" }}>
+                <label className="check" style={{ marginRight: "1rem" }}>
+                  <input type="checkbox" checked={postfach.tls} onChange={(event) => setPostfach({ ...postfach, tls: event.target.checked })} />
+                  TLS verschlüsseln
+                </label>
+                <button type="submit">Postfach speichern</button>
+                <button type="button" className="secondary" onClick={() => void postfachTest()}>Verbindung testen</button>
+                <button type="button" className="secondary" disabled={postfachLaeuft} onClick={() => void postfachAbrufen()}>
+                  {postfachLaeuft ? "Abruf läuft …" : "Jetzt abrufen"}
+                </button>
+              </div>
+              {postfachHinweis && <p className="hinweis">{postfachHinweis}</p>}
+              {postfachProtokoll.length > 0 && (
+                <div className="tabelle-scroll">
+                  <table className="optionen-tabelle dicht">
+                    <thead>
+                      <tr>
+                        <th>Zeitpunkt</th>
+                        <th>Absender</th>
+                        <th>Betreff</th>
+                        <th>Dateien</th>
+                        <th>Belege</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {postfachProtokoll.slice(0, 10).map((zeile) => (
+                        <tr key={zeile.import_id}>
+                          <td>{zeile.zeitpunkt ? zeile.zeitpunkt.replace("T", " ") : "—"}</td>
+                          <td>{zeile.absender || "—"}</td>
+                          <td>{zeile.betreff || "—"}</td>
+                          <td>{zeile.dateien}</td>
+                          <td>{zeile.beleg_ids.length}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </form>
           )}
 

@@ -105,6 +105,8 @@ class Beleg(Base):
     rechnungsnummer: Mapped[str] = mapped_column(Text, default="")
     text_auszug: Mapped[str] = mapped_column(Text, default="")
     pruefung: Mapped[str] = mapped_column(Text, default="")
+    # Textstatus: text (Text vorhanden), ocr (per OCR gelesen), ohne (kein Text), leer (Altbestand).
+    ocr_status: Mapped[str] = mapped_column(String(20), default="")
     datei: Mapped[str] = mapped_column(Text, nullable=False)
     erstellt: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     datev_gesendet: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -139,6 +141,21 @@ class BewegungBeleg(Base):
     bewegung_id: Mapped[int] = mapped_column(ForeignKey("bewegungen.bewegung_id"), nullable=False)
     beleg_id: Mapped[int] = mapped_column(ForeignKey("belege.beleg_id"), nullable=False, unique=True)
     zuordnung: Mapped[str] = mapped_column(String(20), default="")
+
+
+class MailImport(Base):
+    """Protokoll des automatischen Beleg-Imports aus dem Postfach."""
+
+    __tablename__ = "mail_importe"
+
+    import_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    message_id: Mapped[str] = mapped_column(Text, default="", index=True)
+    betreff: Mapped[str] = mapped_column(Text, default="")
+    absender: Mapped[str] = mapped_column(Text, default="")
+    dateien: Mapped[int] = mapped_column(Integer, default=0)
+    # IDs der angelegten Belege als JSON-Liste.
+    beleg_ids_json: Mapped[str] = mapped_column(Text, default="[]")
+    zeitpunkt: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class AbrechnungsKriterium(Base):

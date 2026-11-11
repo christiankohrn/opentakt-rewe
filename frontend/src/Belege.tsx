@@ -40,6 +40,7 @@ type Beleg = {
   betrag_herkunft: string;
   datum_herkunft: string;
   partner_herkunft: string;
+  ocr_status: string;
   pruefung: string;
   ohne_bewegung?: boolean;
   bewegung_id?: number | null;
@@ -51,6 +52,13 @@ function herkunftText(wert: string): string {
   if (wert === "geraten") return "nur geraten";
   if (wert === "korrigiert") return "korrigiert";
   return "nicht erkannt";
+}
+
+function ocrText(status: string): string {
+  if (status === "text") return "Text vorhanden";
+  if (status === "ocr") return "Text per OCR gelesen";
+  if (status === "ohne") return "Kein Text gefunden";
+  return "Textstatus unbekannt";
 }
 
 export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onFehler: (text: string) => void }) {
@@ -197,6 +205,21 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
     }
   }
 
+  async function ocrLaufen() {
+    if (!aktiv) return;
+    try {
+      const daten = await api<Beleg>("/api/belege/" + aktiv.beleg_id + "/ocr", { method: "POST" });
+      setPartner(daten.partner || "");
+      setBetrag(betragEingabe(daten.betrag));
+      setDatum(daten.datum || "");
+      setNummer(daten.rechnungsnummer || "");
+      await laden(konto);
+      onFehler("");
+    } catch (exc) {
+      onFehler(exc instanceof ApiFehler ? exc.message : "OCR fehlgeschlagen.");
+    }
+  }
+
   async function speichern(weiter: boolean) {
     if (!aktiv) return;
     try {
@@ -332,6 +355,14 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
       <button type="button" className="secondary" onClick={() => setBearbeitung(false)}>Zur Liste</button>
       <h2>{aktiv.dateiname}</h2>
       <p className="hinweis">Belegtyp {aktiv.art} · Herkunft {kontoName(aktiv.quelle)}</p>
+      <p className="hinweis">
+        Texterkennung: {ocrText(aktiv.ocr_status || "")}{" "}
+        {aktiv.ocr_status !== "text" && aktiv.ocr_status !== "ocr" && (
+          <button type="button" className="secondary" onClick={() => void ocrLaufen()}>
+            {aktiv.ocr_status === "ohne" ? "OCR erneut versuchen" : "Text auslesen (OCR)"}
+          </button>
+        )}
+      </p>
       <label>Kategorie / Konto
         <select value={belegKonto} onChange={(event) => setBelegKonto(event.target.value)}>
           {!kategorien.some((k) => k.schluessel === belegKonto) && belegKonto && (

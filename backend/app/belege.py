@@ -100,7 +100,11 @@ def importiere(session: Session, dateiname: str, inhalt: bytes, art: str, quelle
     if vorhanden is not None:
         return {"beleg_id": vorhanden.beleg_id, "neu": False, "umsaetze": 0, "hinweis": "Datei war schon importiert."}
     datei = _speichern(digest, dateiname, inhalt)
-    text = _text(dateiname, inhalt)
+    from app.ocr import text_ermitteln
+
+    text, ocr_status, ocr_hinweis = text_ermitteln(dateiname, inhalt)
+    if not text:
+        text = _text(dateiname, inhalt)
     erkannt = beleg_erkennen(session, dateiname, text, inhalt)
     betrag = None
     datum = None
@@ -126,6 +130,8 @@ def importiere(session: Session, dateiname: str, inhalt: bytes, art: str, quelle
         if art == "beleg" and quelle != "ausgang":
             if erkannt.get("ist_ausgang") or re.match(r"^\d{2}\.\d{4}$", erkannt.get("rechnungsnummer") or ""):
                 art = "ausgang"
+    if ocr_hinweis and (ocr_status == "ohne" or not pruefung):
+        pruefung = f"{pruefung}\n{ocr_hinweis}".strip() if pruefung else ocr_hinweis
     beleg = Beleg(
         sha256=digest,
         dateiname=_sicher(dateiname),
@@ -140,6 +146,7 @@ def importiere(session: Session, dateiname: str, inhalt: bytes, art: str, quelle
         partner_herkunft="" if art == "abrechnung" else (erkannt.get("partner_herkunft") or ""),
         text_auszug=text[:8000],
         pruefung=pruefung,
+        ocr_status=ocr_status,
         datei=datei,
         erstellt=datetime.now(),
         geschaeftspartner_id=partner_id,
@@ -646,6 +653,42 @@ def _dateien(session: Session, bewegung: Bewegung, namen: dict[int, str]) -> lis
     if not dateien and bewegung.beleg_id in namen:
         dateien = [namen[bewegung.beleg_id]]
     return dateien
+
+
+def ocr_nachholen(session: Session, beleg_id: int) -> Beleg:
+    """Liest den Text eines vorhandenen Belegs (erneut) aus, per OCR falls nötig."""
+    from app.ocr import text_ermitteln
+
+    beleg = session.get(Beleg, beleg_id)
+    if beleg is None:
+        raise ValueError("Beleg nicht gefunden.")
+    inhalt = beleg_inhalt_laden(session, beleg)
+    if not inhalt:
+        raise ValueError("Datei nicht gefunden.")
+    text, status, hinweis = text_ermitteln(beleg.dateiname, inhalt)
+    if text and len(text) > len(beleg.text_auszug or ""):
+        beleg.text_auszug = text[:8000]
+    if status:
+        beleg.ocr_status = status
+    if hinweis and "OCR" not in (beleg.pruefung or ""):
+        beleg.pruefung = f"{beleg.pruefung}\n{hinweis}".strip() if beleg.pruefung else hinweis
+    if beleg.art != "abrechnung" and (beleg.text_auszug or "").strip():
+        erkannt = beleg_erkennen(session, beleg.dateiname, beleg.text_auszug, inhalt)
+        if beleg.betrag is None and erkannt.get("betrag"):
+            beleg.betrag = Decimal(erkannt["betrag"])
+            beleg.betrag_herkunft = erkannt.get("betrag_herkunft") or ""
+        if beleg.datum is None and erkannt.get("datum"):
+            beleg.datum = date.fromisoformat(erkannt["datum"])
+            beleg.datum_herkunft = erkannt.get("datum_herkunft") or ""
+        if not (beleg.partner or "").strip() and erkannt.get("partner"):
+            beleg.partner = erkannt["partner"]
+            beleg.partner_herkunft = erkannt.get("partner_herkunft") or ""
+        if not (beleg.rechnungsnummer or "").strip() and erkannt.get("rechnungsnummer"):
+            beleg.rechnungsnummer = erkannt["rechnungsnummer"]
+        if beleg.geschaeftspartner_id is None and erkannt.get("partner_id"):
+            beleg.geschaeftspartner_id = erkannt["partner_id"]
+    session.flush()
+    return beleg
 
 
 def vorschau_erkennen(session: Session, dateiname: str, inhalt: bytes) -> dict:
@@ -1623,6 +1666,7 @@ def beleg_dict(beleg: Beleg, bewegung: Bewegung | None) -> dict:
         "datum_herkunft": beleg.datum_herkunft or "",
         "partner_herkunft": beleg.partner_herkunft or "",
         "pruefung": beleg.pruefung,
+        "ocr_status": beleg.ocr_status or "",
         "ohne_bewegung": beleg.art != "abrechnung" and bewegung is None,
         "bewegung_id": bewegung.bewegung_id if bewegung else None,
         "datev": vorschlag(beleg.quelle),
