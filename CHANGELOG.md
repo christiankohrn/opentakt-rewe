@@ -4,6 +4,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Ve
 
 ## [Unreleased]
 
+- Benutzerführung und Touch-Bedienung für iPhone und Desktop überarbeitet: echtes Master-Detail mit Zurück-Leiste und Vor/Zurück-Navigation auf schmalen Bildschirmen, volle Breite für Belege und Kontozeilen, Rechnungspositionen mobil als Karten, Datei-Import im mobilen Kopf und direkt erreichbare Aktionen ohne Doppel-/Rechtsklick-Zwang
 - Mobile Oberfläche wie in Opentakt Zeit (bis 1024px, also auch iPhone quer): Kopfzeile mit Icon-Knöpfen (Farbschema, Abmelden, Konto) oben, fixierte Icon-Leiste mit sechs Hauptbereichen und Scroll-Pfeilen unten; Listen scrollen seitlich statt zu quetschen
 - Benutzerverwaltung als Reiter in den Einstellungen (nur Admin, überall) statt eigenem Menüpunkt
 - Belegbearbeitung ohne die Datei-Auswahlkarte oben (Belege kommen per Scannen, Postfach oder Drag & Drop hinein)

@@ -1,10 +1,10 @@
 import { useEffect, useState, type DragEvent } from "react";
 import { ApiFehler, api, dateiSpeichern, datumDE, geld, hatExterneDateien } from "./api";
-import { AblegenModal } from "./Ablegen";
+import { AblegenModal, DateiImportKnopf } from "./Ablegen";
 import { BelegAnsicht } from "./Belege";
 import { KontoFilter } from "./konten";
 import { DatenListe, zeilenWahl, type Sortierung } from "./liste";
-import { gehe } from "./nav";
+import { LinkIntern, gehe } from "./nav";
 import { Teilung } from "./teilen";
 
 type Kurz = {
@@ -84,6 +84,7 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
   const [exportLaedt, setExportLaedt] = useState(false);
   const [exportHinweis, setExportHinweis] = useState("");
   const [aktiveAbrechnung, setAktiveAbrechnung] = useState<number | null>(null);
+  const [abrVorschauMobil, setAbrVorschauMobil] = useState(false);
   const [abrMenu, setAbrMenu] = useState<{ x: number; y: number; eintrag: AbrechnungDatei } | null>(null);
   const [konto, setKonto] = useState("");
   const [suche, setSuche] = useState("");
@@ -116,6 +117,14 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
   useEffect(() => {
     laden(konto).catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Kontozeilen fehlen."));
   }, [konto]);
+
+  useEffect(() => {
+    if (bewegungId && window.innerWidth <= 1024) {
+      setDetail(true);
+    } else if (!bewegungId) {
+      setDetail(false);
+    }
+  }, [bewegungId]);
 
   useEffect(() => {
     const neuLaden = () => {
@@ -181,15 +190,19 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
       });
       await laden(konto);
       onFehler("");
-      if (weiter && antwort.naechste_id) gehe("/kontozeilen/" + antwort.naechste_id);
-      else setDetail(false);
+      if (weiter && antwort.naechste_id) {
+        gehe("/kontozeilen/" + antwort.naechste_id);
+      } else {
+        setDetail(false);
+        if (window.innerWidth <= 1024) gehe("/kontozeilen");
+      }
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen.");
     }
   }
 
-  async function umsaetzeLoeschen() {
-    const ids = gewaehlt.length ? gewaehlt : bewegungId ? [bewegungId] : [];
+  async function umsaetzeLoeschen(einzelId?: number) {
+    const ids = einzelId ? [einzelId] : gewaehlt.length ? gewaehlt : bewegungId ? [bewegungId] : [];
     if (!ids.length) return;
     const frage = ids.length === 1
       ? "Soll diese Kontozeile gelöscht werden?"
@@ -216,7 +229,10 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
     if (!window.confirm(`Soll die Abrechnung "${eintrag.dateiname}" inklusive aller ${eintrag.umsaetze} zugehörigen Kontozeilen gelöscht werden?`)) return;
     try {
       await api("/api/belege/" + eintrag.beleg_id, { method: "DELETE" });
-      if (aktiveAbrechnung === eintrag.beleg_id) setAktiveAbrechnung(null);
+      if (aktiveAbrechnung === eintrag.beleg_id) {
+        setAktiveAbrechnung(null);
+        setAbrVorschauMobil(false);
+      }
       setDetail(false);
       await laden(konto);
       onFehler("");
@@ -332,7 +348,6 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
     : gefiltert;
 
   const gewaehltZeile = liste.find((eintrag) => eintrag.bewegung_id === bewegungId) || null;
-  const index = sichtbar.findIndex((eintrag) => eintrag.bewegung_id === bewegungId);
   const vorschau = detail ? zeile : gewaehltZeile;
   const alle = [...(zeile?.vorschlaege || []), ...(zeile?.uebrige || [])];
   const gewaehlterName = alle.find((vorschlag) => vorschlag.beleg_id === anzeige)?.dateiname;
@@ -378,40 +393,42 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
   }
 
   function belegTabelle(titel: string, eintraege: Vorschlag[]) {
-    const gefiltert = filterBelege(eintraege);
+    const gefiltertBelege = filterBelege(eintraege);
     return (
       <>
-        <h2>{titel} ({gefiltert.length})</h2>
-        {gefiltert.length === 0 && <p className="hinweis">Keine Belege.</p>}
-        {gefiltert.length > 0 && (
-          <DatenListe
-            zeilen={gefiltert}
-            zeilenId={(vorschlag) => vorschlag.beleg_id}
-            href={(vorschlag) => "/belege/" + vorschlag.beleg_id}
-            aktivId={anzeige}
-            gewaehlt={belegIds}
-            sortierung={null}
-            onSort={() => undefined}
-            onZeile={(_event, indexZeile) => setAnzeige(gefiltert[indexZeile].beleg_id)}
-            onDoppel={(indexZeile) => umschalten(gefiltert[indexZeile].beleg_id)}
-            vorn={(vorschlag) => (
-              <input
-                type="checkbox"
-                aria-label={vorschlag.zugeordnet ? "zugeordnet" : "Beleg"}
-                checked={belegIds.includes(vorschlag.beleg_id)}
-                onClick={(event) => event.stopPropagation()}
-                onDoubleClick={(event) => event.stopPropagation()}
-                onChange={() => umschalten(vorschlag.beleg_id)}
-              />
-            )}
-            spalten={[
-              { key: "datum", titel: "Belegdatum", zelle: (vorschlag) => datumDE(vorschlag.datum) || "—" },
-              { key: "partner", titel: "Geschäftspartner", zelle: (vorschlag) => vorschlag.partner || "—" },
-              { key: "betrag", titel: "Rechnungsbetrag", zelle: (vorschlag) => vorschlag.betrag ? geld(vorschlag.betrag) : "—" },
-              { key: "grund", titel: "Treffer", zelle: (vorschlag) => vorschlag.grund || "—" },
-              { key: "dateiname", titel: "Dateiname", zelle: (vorschlag) => vorschlag.dateiname },
-            ]}
-          />
+        <h3 style={{ margin: "0.6rem 0 0.3rem" }}>{titel} ({gefiltertBelege.length})</h3>
+        {gefiltertBelege.length === 0 && <p className="hinweis" style={{ margin: "0.2rem 0" }}>Keine passenden Belege.</p>}
+        {gefiltertBelege.length > 0 && (
+          <div className="tabelle-scroll">
+            <DatenListe
+              zeilen={gefiltertBelege}
+              zeilenId={(vorschlag) => vorschlag.beleg_id}
+              href={(vorschlag) => "/belege/" + vorschlag.beleg_id}
+              aktivId={anzeige}
+              gewaehlt={belegIds}
+              sortierung={null}
+              onSort={() => undefined}
+              onZeile={(_event, indexZeile) => setAnzeige(gefiltertBelege[indexZeile].beleg_id)}
+              onDoppel={(indexZeile) => umschalten(gefiltertBelege[indexZeile].beleg_id)}
+              vorn={(vorschlag) => (
+                <input
+                  type="checkbox"
+                  aria-label={vorschlag.zugeordnet ? "zugeordnet" : "Beleg auswählen"}
+                  checked={belegIds.includes(vorschlag.beleg_id)}
+                  onClick={(event) => event.stopPropagation()}
+                  onDoubleClick={(event) => event.stopPropagation()}
+                  onChange={() => umschalten(vorschlag.beleg_id)}
+                />
+              )}
+              spalten={[
+                { key: "partner", titel: "Partner", zelle: (vorschlag) => vorschlag.partner || vorschlag.dateiname },
+                { key: "betrag", titel: "Betrag", zelle: (vorschlag) => vorschlag.betrag ? geld(vorschlag.betrag) : "—" },
+                { key: "datum", titel: "Belegdatum", zelle: (vorschlag) => datumDE(vorschlag.datum) || "—" },
+                { key: "grund", titel: "Treffer", zelle: (vorschlag) => vorschlag.grund || "—" },
+                { key: "dateiname", titel: "Datei", zelle: (vorschlag) => vorschlag.dateiname },
+              ]}
+            />
+          </div>
         )}
       </>
     );
@@ -431,63 +448,83 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
     dateienDazu([...event.dataTransfer.files]);
   }
 
+  const offeneUmsaetze = liste.filter((e) => !e.geprueft).length;
+
   const listePane = (
-    <div className="liste-spalte dicht">
-      <div className="liste-werkzeug">
-        <h2>
-          {ansicht === "umsaetze"
-            ? `Kontoumsatz ${index >= 0 ? index + 1 : 0} / ${sichtbar.length}`
-            : ansicht === "abrechnungen"
-              ? `Abrechnungen (${abrechnungen.length})`
-              : `Export-Vorgänge (${exporte.length})`}
-        </h2>
-        <div className="actions">
-          <button type="button" className={ansicht === "umsaetze" ? "" : "secondary"} onClick={() => setAnsicht("umsaetze")}>
-            Umsätze ({liste.length})
-          </button>
-          <button
-            type="button"
-            className={ansicht === "abrechnungen" ? "" : "secondary"}
-            onClick={() => {
-              setAnsicht("abrechnungen");
-              if (!aktiveAbrechnung && abrechnungen[0]) setAktiveAbrechnung(abrechnungen[0].beleg_id);
-            }}
-          >
-            Abrechnungen ({abrechnungen.length})
-          </button>
-          <button
-            type="button"
-            className={ansicht === "exporte" ? "" : "secondary"}
-            onClick={() => setAnsicht("exporte")}
-          >
-            Exporte ({exporte.length})
-          </button>
-        </div>
+    <div className="spalte liste-spalte dicht">
+      <div className="reiter kompakt-reiter" role="tablist" aria-label="Kontozeilen-Bereich">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={ansicht === "umsaetze"}
+          className={ansicht === "umsaetze" ? "reiter-knopf aktiv" : "reiter-knopf"}
+          onClick={() => { setAnsicht("umsaetze"); setAbrVorschauMobil(false); }}
+        >
+          Umsätze ({liste.length})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={ansicht === "abrechnungen"}
+          className={ansicht === "abrechnungen" ? "reiter-knopf aktiv" : "reiter-knopf"}
+          onClick={() => {
+            setAnsicht("abrechnungen");
+            setAbrVorschauMobil(false);
+            if (!aktiveAbrechnung && abrechnungen[0]) setAktiveAbrechnung(abrechnungen[0].beleg_id);
+          }}
+        >
+          Abrechnungen ({abrechnungen.length})
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={ansicht === "exporte"}
+          className={ansicht === "exporte" ? "reiter-knopf aktiv" : "reiter-knopf"}
+          onClick={() => { setAnsicht("exporte"); setAbrVorschauMobil(false); }}
+        >
+          Exporte ({exporte.length})
+        </button>
       </div>
+
       <KontoFilter wert={konto} onChange={setKonto} />
-      {exportHinweis && <p className="hinweis"><strong>{exportHinweis}</strong></p>}
+      {exportHinweis && <p className="erfolg-hinweis" role="status">{exportHinweis}</p>}
+
       {ansicht === "umsaetze" ? (
         <>
-          <label>
-            Suche
-            <input
-              value={suche}
-              placeholder="Empfänger, Verwendungszweck, Betrag …"
-              onChange={(event) => setSuche(event.target.value)}
-            />
-          </label>
-          <div className="actions">
-            <button type="button" disabled={exportLaedt} onClick={() => void emailExportStarten(true)}>
-              {exportLaedt ? "Sende E-Mails …" : "E-Mail-Export starten (ungeliefert)"}
-            </button>
-            {konto && (
-              <button type="button" className="secondary" onClick={() => void weiterverarbeitungDownload(konto)}>
-                Datev-Datei
+          <div className="liste-werkzeug" style={{ marginBottom: "0.4rem" }}>
+            <div className="actions" style={{ margin: 0 }}>
+              <DateiImportKnopf onFehler={onFehler} className="button" title="Kontoauszug oder Beleg importieren" />
+              <button type="button" className="secondary" disabled={exportLaedt} onClick={() => void emailExportStarten(true)}>
+                {exportLaedt ? "Sende …" : "An DATEV senden"}
               </button>
-            )}
-            <button type="button" className="secondary" onClick={() => { setSortierung(null); setSuche(""); setAnker(-1); }}>Zurücksetzen</button>
-            <button type="button" className="danger" onClick={() => void umsaetzeLoeschen()}>Kontozeile löschen</button>
+              {konto && (
+                <button type="button" className="secondary" onClick={() => void weiterverarbeitungDownload(konto)}>
+                  DATEV-CSV
+                </button>
+              )}
+            </div>
+            <div className="actions" style={{ margin: 0 }}>
+              {(suche.trim() || sortierung || konto) && (
+                <button type="button" className="secondary kompakt-knopf" onClick={() => { setSortierung(null); setSuche(""); setKonto(""); setAnker(-1); }}>
+                  Filter leeren
+                </button>
+              )}
+              {gewaehlt.length > 1 && (
+                <button type="button" className="danger kompakt-knopf" onClick={() => void umsaetzeLoeschen()}>
+                  {gewaehlt.length} löschen
+                </button>
+              )}
+            </div>
           </div>
+
+          <input
+            aria-label="Kontoumsätze suchen"
+            value={suche}
+            placeholder={`Empfänger, Zweck oder Betrag suchen … (${offeneUmsaetze} ungeprüft)`}
+            onChange={(event) => setSuche(event.target.value)}
+            style={{ marginBottom: "0.45rem" }}
+          />
+
           <div className="liste-scroll">
             <DatenListe
               zeilen={sichtbar}
@@ -502,7 +539,7 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
                 const ergebnis = zeilenWahl(event, indexZeile, ids, gewaehlt, anker);
                 setGewaehlt(ergebnis.ids);
                 setAnker(ergebnis.anker);
-                setDetail(false);
+                setDetail(window.innerWidth <= 1024);
                 gehe("/kontozeilen/" + ids[indexZeile]);
               }}
               onDoppel={(indexZeile) => {
@@ -521,11 +558,11 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
               )}
               klasse={(eintrag) => eintrag.geprueft ? "" : "offen"}
               spalten={[
-                { key: "beleg", titel: "Beleg", zelle: (eintrag) => (eintrag.beleg_anzahl || 0) > 1 ? eintrag.beleg_anzahl + " Belege" : eintrag.beleg_id ? "Beleg" : "" },
                 { key: "datum", titel: "Datum", zelle: (eintrag) => datumDE(eintrag.datum) },
-                { key: "gegenpartei", titel: "Empfänger/Auftraggeber", zelle: (eintrag) => eintrag.gegenpartei },
-                { key: "zweck", titel: "Verwendungszweck", zelle: (eintrag) => eintrag.zweck },
+                { key: "gegenpartei", titel: "Empfänger / Auftraggeber", zelle: (eintrag) => eintrag.gegenpartei || "—" },
                 { key: "betrag", titel: "Betrag", zelle: (eintrag) => <span className={Number(eintrag.betrag) < 0 ? "betrag-negativ" : ""}>{geld(eintrag.betrag)}</span> },
+                { key: "beleg", titel: "Beleg", zelle: (eintrag) => (eintrag.beleg_anzahl || 0) > 1 ? eintrag.beleg_anzahl + " Belege" : eintrag.beleg_id ? "zugeordnet" : "—" },
+                { key: "zweck", titel: "Verwendungszweck", zelle: (eintrag) => eintrag.zweck },
                 { key: "geliefert", titel: "StB", zelle: (eintrag) => eintrag.datev_geliefert ? datumDE(eintrag.datev_geliefert) : "offen" },
               ]}
             />
@@ -533,13 +570,25 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
         </>
       ) : ansicht === "abrechnungen" ? (
         <>
-          <div className="actions">
-            <button type="button" disabled={exportLaedt} onClick={() => void emailExportStarten(true)}>
-              {exportLaedt ? "Sende E-Mails …" : "E-Mail-Export starten (ungeliefert)"}
-            </button>
-            <button type="button" className="danger" disabled={!aktiveAbrechnung} onClick={() => void abrechnungLoeschen()}>
-              Ganze Abrechnung löschen
-            </button>
+          <div className="liste-werkzeug" style={{ marginBottom: "0.45rem" }}>
+            <div className="actions" style={{ margin: 0 }}>
+              <DateiImportKnopf onFehler={onFehler} className="button" title="Abrechnung importieren" />
+              {aktiveAbrObj && (
+                <button type="button" className="secondary" onClick={() => void abrechnungAnDatevSenden(aktiveAbrObj)}>
+                  Abrechnung an DATEV ({aktiveAbrObj.quelle.toUpperCase()})
+                </button>
+              )}
+              {aktiveAbrObj && (
+                <button type="button" className="secondary nur-mobil-inline" onClick={() => setAbrVorschauMobil(true)}>
+                  PDF ansehen
+                </button>
+              )}
+            </div>
+            {aktiveAbrObj && (
+              <button type="button" className="danger kompakt-knopf" onClick={() => void abrechnungLoeschen()}>
+                Abrechnung löschen
+              </button>
+            )}
           </div>
           <div className="liste-scroll">
             <DatenListe
@@ -561,7 +610,7 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
                 { key: "dateiname", titel: "Abrechnungsdatei", zelle: (eintrag) => eintrag.dateiname },
                 { key: "zeitraum", titel: "Zeitraum", zelle: (eintrag) => eintrag.von && eintrag.bis ? `${datumDE(eintrag.von)} – ${datumDE(eintrag.bis)}` : datumDE(eintrag.eingang) || "—" },
                 { key: "umsaetze", titel: "Umsätze", zelle: (eintrag) => `${eintrag.zugeordnet}/${eintrag.umsaetze} Belege · ${eintrag.geprueft} gepr.` },
-                { key: "stb", titel: "StB-Lieferung", zelle: (eintrag) => eintrag.datev_gesendet ? datumDE(eintrag.datev_gesendet) : `${eintrag.geliefert}/${eintrag.umsaetze}` },
+                { key: "stb", titel: "StB", zelle: (eintrag) => eintrag.datev_gesendet ? datumDE(eintrag.datev_gesendet) : `${eintrag.geliefert}/${eintrag.umsaetze}` },
               ]}
             />
           </div>
@@ -579,13 +628,13 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
         </>
       ) : (
         <>
-          <div className="actions">
+          <div className="actions" style={{ marginTop: 0 }}>
             <button type="button" disabled={exportLaedt} onClick={() => void emailExportStarten(true)}>
               {exportLaedt ? "Sende E-Mails …" : "E-Mail-Export starten (ungeliefert)"}
             </button>
             {konto && (
               <button type="button" className="secondary" onClick={() => void weiterverarbeitungDownload(konto)}>
-                Datev-Datei
+                DATEV-CSV
               </button>
             )}
             <button type="button" className="secondary" onClick={() => void datevExport(true, true)}>
@@ -596,50 +645,52 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
             {exporte.length === 0 ? (
               <p className="hinweis">Noch keine Export-Vorgänge durchgeführt.</p>
             ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Zeitpunkt</th>
-                    <th>Art</th>
-                    <th>Konto</th>
-                    <th>Umfang</th>
-                    <th>Erneut per E-Mail senden</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {exporte.map((vorgang) => (
-                    <tr key={vorgang.export_id}>
-                      <td>{datumDE(vorgang.zeitpunkt)} {vorgang.zeitpunkt.slice(11, 16)}</td>
-                      <td>{vorgang.art === "email" ? "E-Mail" : "ZIP"}</td>
-                      <td>{vorgang.konto ? vorgang.konto.toUpperCase() : "Alle"}</td>
-                      <td>{vorgang.zusammenfassung}</td>
-                      <td>
-                        <div className="actions" style={{ gap: "0.3rem", flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            className="secondary"
-                            disabled={exportLaedt}
-                            onClick={() => void exportWiederholen(vorgang.export_id, konto)}
-                          >
-                            {konto ? `Nur ${konto.toUpperCase()}` : "Alle erneut senden"}
-                          </button>
-                          {!konto && (vorgang.konten || []).length > 1 && (vorgang.konten || []).map((k) => (
-                            <button
-                              key={k}
-                              type="button"
-                              className="secondary"
-                              disabled={exportLaedt}
-                              onClick={() => void exportWiederholen(vorgang.export_id, k)}
-                            >
-                              {k === "ausgang" ? "Ausgangsrechn." : k.toUpperCase()}
-                            </button>
-                          ))}
-                        </div>
-                      </td>
+              <div className="tabelle-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Zeitpunkt</th>
+                      <th>Art</th>
+                      <th>Konto</th>
+                      <th>Umfang</th>
+                      <th>Erneut per E-Mail senden</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {exporte.map((vorgang) => (
+                      <tr key={vorgang.export_id}>
+                        <td>{datumDE(vorgang.zeitpunkt)} {vorgang.zeitpunkt.slice(11, 16)}</td>
+                        <td>{vorgang.art === "email" ? "E-Mail" : "ZIP"}</td>
+                        <td>{vorgang.konto ? vorgang.konto.toUpperCase() : "Alle"}</td>
+                        <td>{vorgang.zusammenfassung}</td>
+                        <td>
+                          <div className="actions" style={{ margin: 0, gap: "0.3rem", flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="secondary kompakt-knopf"
+                              disabled={exportLaedt}
+                              onClick={() => void exportWiederholen(vorgang.export_id, konto)}
+                            >
+                              {konto ? `Nur ${konto.toUpperCase()}` : "Alle erneut senden"}
+                            </button>
+                            {!konto && (vorgang.konten || []).length > 1 && (vorgang.konten || []).map((k) => (
+                              <button
+                                key={k}
+                                type="button"
+                                className="secondary kompakt-knopf"
+                                disabled={exportLaedt}
+                                onClick={() => void exportWiederholen(vorgang.export_id, k)}
+                              >
+                                {k === "ausgang" ? "Ausgangsrechn." : k.toUpperCase()}
+                              </button>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </>
@@ -655,53 +706,93 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
   const differenz = Math.round((zielBetrag - gewaehlteSumme) * 100) / 100;
 
   const umsatz = zeile && (
-    <div className="liste-spalte dicht">
-      <div className="actions">
-        <button type="button" className="secondary" onClick={() => setDetail(false)}>Zur Liste</button>
-        {zeile.vorige_id && (
-          <button type="button" className="secondary" onClick={() => gehe("/kontozeilen/" + zeile.vorige_id)}>← Vorige</button>
-        )}
-        {zeile.naechste_id && (
-          <button type="button" className="secondary" onClick={() => gehe("/kontozeilen/" + zeile.naechste_id)}>Nächste →</button>
-        )}
+    <div className="spalte liste-spalte dicht">
+      <div className="liste-werkzeug" style={{ marginBottom: "0.5rem" }}>
+        <button
+          type="button"
+          className="secondary kompakt-knopf"
+          onClick={() => {
+            setDetail(false);
+            if (window.innerWidth <= 1024) gehe("/kontozeilen");
+          }}
+        >
+          ← Alle Umsätze
+        </button>
+        <div className="actions" style={{ margin: 0 }}>
+          {zeile.vorige_id && (
+            <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/kontozeilen/" + zeile.vorige_id)}>‹ Vorige</button>
+          )}
+          {zeile.naechste_id && (
+            <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/kontozeilen/" + zeile.naechste_id)}>Nächste ›</button>
+          )}
+        </div>
       </div>
-      <fieldset className="block">
+
+      <fieldset className="block" style={{ marginBottom: "0.6rem" }}>
         <legend>Kontoumsatz ({zeile.quelle.toUpperCase()})</legend>
-        <p>
+        <p style={{ margin: "0.2rem 0" }}>
           <strong>{datumDE(zeile.datum)}</strong> · <strong>{zeile.gegenpartei || "—"}</strong> ·{" "}
           <strong className={Number(zeile.betrag) < 0 ? "betrag-negativ" : ""}>{geld(zeile.betrag)} {zeile.waehrung}</strong>
         </p>
-        {zeile.zweck && <p className="hinweis">{zeile.zweck}</p>}
+        {zeile.zweck && <p className="hinweis" style={{ margin: "0.2rem 0" }}>{zeile.zweck}</p>}
         {zeile.import_dateiname && (
-          <p className="hinweis">
-            Abrechnungsdatei:{" "}
+          <p className="hinweis" style={{ margin: "0.2rem 0 0" }}>
+            Abrechnung:{" "}
             <button type="button" className="sort" onClick={() => { if (zeile.import_beleg_id) setAnzeige(zeile.import_beleg_id); }}>
               {zeile.import_dateiname}
             </button>
           </p>
         )}
       </fieldset>
-      <p>
+
+      <div className="werkzeug-leiste" style={{ marginBottom: "0.5rem" }}>
+        <div className="haupt-aktionen">
+          <button type="button" onClick={() => void speichern(true)}>Speichern & weiter</button>
+          <button type="button" className="secondary" onClick={() => void speichern(false)}>Speichern</button>
+        </div>
+        <div className="neben-aktionen">
+          <label className="check">
+            <input type="checkbox" checked={geprueft} onChange={(event) => setGeprueft(event.target.checked)} />
+            Geprüft
+          </label>
+          <details className="mehr-menue">
+            <summary className="button secondary kompakt-knopf">Mehr ▾</summary>
+            <div className="mehr-liste" onClick={(event) => { const d = event.currentTarget.closest("details"); if (d) d.open = false; }}>
+              {belegIds.length > 0 && (
+                <button type="button" onClick={() => { setBelegIds([]); void zuordnen([]); }}>
+                  Beleg-Zuordnung lösen
+                </button>
+              )}
+              <button type="button" className="menue-gefahr" onClick={() => void umsaetzeLoeschen(zeile.bewegung_id)}>
+                Kontozeile löschen
+              </button>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <p className="hinweis" style={{ margin: "0.2rem 0 0.5rem" }}>
         {belegIds.length
-          ? `${belegIds.length} ${belegIds.length === 1 ? "Beleg" : "Belege"} gewählt (${geld(gewaehlteSumme.toFixed(2))} EUR${Math.abs(differenz) > 0.005 ? ` · Differenz ${geld(differenz.toFixed(2))} EUR` : " · Betrag passt"})`
-          : "Kein Beleg zugeordnet (Zeile anklicken für Vorschau, Doppelklick oder Häkchen zum Auswählen)"}
+          ? `${belegIds.length} ${belegIds.length === 1 ? "Beleg" : "Belege"} gewählt (${geld(gewaehlteSumme.toFixed(2))}${Math.abs(differenz) > 0.005 ? ` · Differenz ${geld(differenz.toFixed(2))}` : " · Betrag passt"})`
+          : "Häkchen setzen zum Zuordnen, Zeile antippen für Vorschau."}
       </p>
-      <label>
-        Belege filtern
-        <input
-          value={belegSuche}
-          placeholder="Partner, Betrag, Rechnungsnr. oder Dateiname …"
-          onChange={(event) => setBelegSuche(event.target.value)}
-        />
-      </label>
+
+      <input
+        aria-label="Belege zur Zuordnung filtern"
+        value={belegSuche}
+        placeholder="Beleg suchen (Partner, Betrag, Rechnungsnr.) …"
+        onChange={(event) => setBelegSuche(event.target.value)}
+        style={{ marginBottom: "0.4rem" }}
+      />
+
       <div className="liste-scroll">
-        {belegTabelle("Vorschläge", zeile.vorschlaege)}
-        {belegTabelle(alleBelege ? "Alle übrigen" : "Weitere (bis 30 Tage vor Buchung)", zeile.uebrige || [])}
+        {belegTabelle("Passende Vorschläge", zeile.vorschlaege)}
+        {belegTabelle(alleBelege ? "Alle übrigen Belege" : "Weitere Belege (bis 30 Tage)", zeile.uebrige || [])}
         {!alleBelege && (zeile.ausgeblendet || 0) > 0 && (
           <p style={{ marginTop: "0.6rem" }}>
             <button
               type="button"
-              className="secondary"
+              className="secondary kompakt-knopf"
               onClick={() => {
                 setAlleBelege(true);
                 void oeffnen(zeile.bewegung_id, true);
@@ -712,26 +803,28 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
           </p>
         )}
       </div>
-      <label className="check">
-        <input type="checkbox" checked={geprueft} onChange={(event) => setGeprueft(event.target.checked)} />
-        Geprüft
-      </label>
-      <div className="actions">
-        <button type="button" onClick={() => void zuordnen()}>Zuordnen</button>
-        {belegIds.length > 0 && (
-          <button type="button" className="secondary" onClick={() => { setBelegIds([]); void zuordnen([]); }}>
-            Zuordnung lösen
-          </button>
-        )}
-        <button type="button" onClick={() => void speichern(false)}>Speichern und schließen</button>
-        <button type="button" onClick={() => void speichern(true)}>Speichern und weiter</button>
-        <button type="button" className="danger" onClick={() => void umsaetzeLoeschen()}>Zeile löschen</button>
-      </div>
     </div>
   );
 
+  const vorschauInhalt = stapelIds.length > 1 ? (
+    <div className="beleg-stapel">
+      {stapelIds.map((id, indexStapel) => (
+        <section key={id} className="beleg-stapel-teil">
+          <h3>Beleg {indexStapel + 1} von {stapelIds.length}: {nameFuer(id)}</h3>
+          <BelegAnsicht belegId={id} name={nameFuer(id)} />
+        </section>
+      ))}
+    </div>
+  ) : vorschauId ? (
+    <BelegAnsicht belegId={vorschauId} name={vorschauName} />
+  ) : (
+    <p className="hinweis vorschau-mitte">Kein Beleg ausgewählt. Umsatz links auswählen oder Datei per Drag & Drop ablegen.</p>
+  );
+
+  const hatMobilDetail = (ansicht === "umsaetze" && detail && Boolean(bewegungId)) || (ansicht === "abrechnungen" && abrVorschauMobil && Boolean(aktiveAbrObj));
+
   return (
-    <div className="seite" onDragOver={(event) => event.preventDefault()} onDrop={fallen}>
+    <div className={`seite ${hatMobilDetail ? "hat-detail" : "nur-liste"}`} onDragOver={(event) => event.preventDefault()} onDrop={fallen}>
       {ablage.length > 0 && (
         <AblegenModal
           warteschlange={ablage}
@@ -763,18 +856,41 @@ export function KontozeilenSeite({ bewegungId, onFehler }: { bewegungId: number 
         />
       )}
       <Teilung
-        start={detail ? 44 : 58}
-        links={detail ? (umsatz || <div className="vorschau-mitte" role="status"><span className="kreis" aria-label="Laden" /></div>) : listePane}
-        rechts={stapelIds.length > 1 ? (
-          <div className="beleg-stapel">
-            {stapelIds.map((id, index) => (
-              <section key={id} className="beleg-stapel-teil">
-                <h3>Beleg {index + 1} von {stapelIds.length}: {nameFuer(id)}</h3>
-                <BelegAnsicht belegId={id} name={nameFuer(id)} />
-              </section>
-            ))}
+        start={detail ? 46 : 56}
+        links={
+          detail ? (
+            <div className="detail-spalte">{umsatz || <div className="vorschau-mitte" role="status"><span className="kreis" aria-label="Laden" /></div>}</div>
+          ) : (
+            <div className="master-spalte">{listePane}</div>
+          )
+        }
+        rechts={
+          <div className={`spalte ${detail || abrVorschauMobil ? "detail-spalte" : "nur-desktop-spalte"}`}>
+            {abrVorschauMobil && aktiveAbrObj && (
+              <div className="mobil-zurueck-leiste">
+                <button type="button" className="secondary kompakt-knopf" onClick={() => setAbrVorschauMobil(false)}>← Abrechnungen</button>
+                <span className="hinweis dateiname-zeile">{aktiveAbrObj.dateiname}</span>
+              </div>
+            )}
+            {!detail && ansicht === "umsaetze" && gewaehltZeile && (
+              <div className="detail-kopf" style={{ marginBottom: "0.6rem" }}>
+                <div>
+                  <strong>{datumDE(gewaehltZeile.datum)} · {gewaehltZeile.gegenpartei || "—"}</strong>{" "}
+                  <strong className={Number(gewaehltZeile.betrag) < 0 ? "betrag-negativ" : ""}>{geld(gewaehltZeile.betrag)}</strong>
+                  {gewaehltZeile.zweck && <p className="hinweis detail-untertitel">{gewaehltZeile.zweck}</p>}
+                </div>
+                <div className="actions" style={{ margin: 0 }}>
+                  <button type="button" onClick={() => setDetail(true)}>Belege zuordnen / Prüfen</button>
+                  {gewaehltZeile.beleg_id && (
+                    <LinkIntern href={"/belege/" + gewaehltZeile.beleg_id} className="button secondary">Zum Beleg</LinkIntern>
+                  )}
+                  <button type="button" className="danger kompakt-knopf" onClick={() => void umsaetzeLoeschen(gewaehltZeile.bewegung_id)}>Löschen</button>
+                </div>
+              </div>
+            )}
+            {vorschauInhalt}
           </div>
-        ) : vorschauId ? <BelegAnsicht belegId={vorschauId} name={vorschauName} /> : <p className="hinweis vorschau-mitte">Kein Beleg ausgewählt. Beleg in der Liste anklicken oder per Drag & Drop hineinziehen.</p>}
+        }
       />
     </div>
   );

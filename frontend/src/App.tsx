@@ -7,24 +7,31 @@ import { KundenSeite } from "./Kunden";
 import { KontozeilenSeite } from "./Kontozeilen";
 import { EinstellungenSeite } from "./Optionen";
 import { RechnungenSeite } from "./Rechnungen";
-import { Ablegen } from "./Ablegen";
+import { Ablegen, DateiImportKnopf } from "./Ablegen";
 import { ScanSeite } from "./Scan";
 import { KontoSeite } from "./Konto";
 import { PasswortSetzen, PasswortVergessen } from "./Zugang";
-import { IconAbmelden, IconBeleg, IconChevronLinks, IconChevronRechts, IconGear, IconKonto, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun } from "./icons";
+import { IconAbmelden, IconBeleg, IconChevronLinks, IconChevronRechts, IconGear, IconKonto, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun, IconUpload } from "./icons";
 import { PRODUCT_NAME } from "./brand";
 import { LinkIntern, routeLesen } from "./nav";
 import { useTheme } from "./theme";
 
-function Fehler({ text }: { text: string }) {
+function Fehler({ text, onSchliessen }: { text: string; onSchliessen?: () => void }) {
   if (!text) return null;
-  return <p className="fehler">{text}</p>;
+  if (!onSchliessen) return <p className="fehler">{text}</p>;
+  return (
+    <div className="fehler-banner" role="alert">
+      <span>{text}</span>
+      <button type="button" className="fehler-schliessen" onClick={onSchliessen} aria-label="Meldung schließen">×</button>
+    </div>
+  );
 }
 
 export function App() {
   const [benutzer, setBenutzer] = useState<Benutzer | null | undefined>(undefined);
   const [route, setRoute] = useState(routeLesen);
   const [fehler, setFehler] = useState("");
+  const mainRef = useRef<HTMLElement>(null);
   const { theme, dark, cycle } = useTheme();
   const themeTitel = theme === "system" ? "Farbschema: System" : theme === "light" ? "Farbschema: Hell" : "Farbschema: Dunkel";
 
@@ -33,12 +40,28 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const neu = () => setRoute(routeLesen());
+    const neu = () => {
+      setRoute(routeLesen());
+      setFehler("");
+    };
     window.addEventListener("popstate", neu);
     return () => window.removeEventListener("popstate", neu);
   }, []);
 
-  if (benutzer === undefined) return <main>Laden …</main>;
+  useEffect(() => {
+    if (window.innerWidth <= 1024) {
+      window.scrollTo({ top: 0 });
+      mainRef.current?.scrollTo({ top: 0 });
+    }
+  }, [route.seite, route.id, route.neu]);
+
+  async function abmelden(mitRueckfrage: boolean) {
+    if (mitRueckfrage && !window.confirm("Jetzt abmelden?")) return;
+    await api("/api/auth/logout", { method: "POST" });
+    setBenutzer(null);
+  }
+
+  if (benutzer === undefined) return <main className="lade-vollbild">Laden …</main>;
   if (benutzer === null) {
     if (route.seite === "passwort-vergessen") return <PasswortVergessen />;
     if (route.seite === "passwort-setzen") return <PasswortSetzen />;
@@ -66,11 +89,11 @@ export function App() {
         </div>
         <div className="navi-fuss">
           <Ablegen onFehler={setFehler} />
+          <LinkIntern href="/konto" className={`navi-link konto-navi-link ${route.seite === "konto" ? "active" : ""}`}><IconKonto className="navi-icon" />Konto & Sicherheit</LinkIntern>
           <div className="navi-fuss-zeile">
-            <button type="button" className="thema-knopf" onClick={cycle} title={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
-            <button type="button" className="abmelden" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }}>Abmelden</button>
+            <button type="button" className="thema-knopf" onClick={cycle} title={themeTitel} aria-label={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
+            <button type="button" className="abmelden" onClick={() => void abmelden(false)}>Abmelden</button>
           </div>
-          <LinkIntern href="/konto" className={`konto-link ${route.seite === "konto" ? "active" : ""}`}>Passwort ändern</LinkIntern>
         </div>
       </nav>
       <header className="mobil-kopf">
@@ -79,13 +102,16 @@ export function App() {
           <span>{benutzer.name || benutzer.benutzername}</span>
         </div>
         <div className="mobil-kopf-rechts">
+          <DateiImportKnopf onFehler={setFehler} className="mobil-icon-knopf" title="Dokument importieren">
+            <IconUpload className="navi-icon" />
+          </DateiImportKnopf>
           <button type="button" className="thema-knopf-mobil" onClick={cycle} title={themeTitel} aria-label={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
-          <button type="button" className="mobil-icon-knopf" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }} title="Abmelden" aria-label="Abmelden"><IconAbmelden className="navi-icon" /></button>
-          <LinkIntern href="/konto" className="mobil-icon-knopf" title="Konto"><IconKonto className="navi-icon" /></LinkIntern>
+          <LinkIntern href="/konto" className={`mobil-icon-knopf ${route.seite === "konto" ? "aktiv" : ""}`} title="Konto & Sicherheit"><IconKonto className="navi-icon" /></LinkIntern>
+          <button type="button" className="mobil-icon-knopf" onClick={() => void abmelden(true)} title="Abmelden" aria-label="Abmelden"><IconAbmelden className="navi-icon" /></button>
         </div>
       </header>
-      <main>
-        <Fehler text={fehler} />
+      <main ref={mainRef}>
+        <Fehler text={fehler} onSchliessen={() => setFehler("")} />
         {route.seite === "rechnungen" && <RechnungenSeite rechnungId={route.id} onFehler={setFehler} />}
         {route.seite === "kunden" && <KundenSeite kundeId={route.id} neu={route.neu} onFehler={setFehler} />}
         {route.seite === "belege" && <BelegeSeite belegId={route.id} onFehler={setFehler} />}
@@ -113,16 +139,18 @@ function MobilUnten({ seite }: { seite: string }) {
 
   useEffect(() => {
     pruefen();
+    const aktiv = rolle.current?.querySelector<HTMLElement>("a.active");
+    aktiv?.scrollIntoView({ block: "nearest", inline: "nearest" });
     window.addEventListener("resize", pruefen);
     return () => window.removeEventListener("resize", pruefen);
-  }, []);
+  }, [seite]);
 
   function rollen(weite: number) {
     rolle.current?.scrollBy({ left: weite, behavior: "smooth" });
   }
 
   return (
-    <nav className="mobil-unten">
+    <nav className="mobil-unten" aria-label="Hauptnavigation">
       {links && (
         <button type="button" className="unten-pfeil links" onClick={() => rollen(-160)} title="Nach links" aria-label="Nach links rollen">
           <IconChevronLinks />
@@ -203,31 +231,39 @@ function Login({ onOk }: { onOk: (benutzer: Benutzer) => void }) {
 
   if (mfa !== null) {
     return (
-      <form className="login" onSubmit={mfaSenden}>
-        <h1>{PRODUCT_NAME}</h1>
-        <p className="hinweis">
-          Zweiter Faktor{mfa.includes("backup_code") ? " (Code aus der App oder Backup-Code)" : " (Code aus der App)"}:
-        </p>
-        <label>Code<input value={code} onChange={(event) => setCode(event.target.value)} autoFocus inputMode="numeric" autoComplete="one-time-code" /></label>
-        <Fehler text={fehler} />
-        <p><button type="submit">Bestätigen</button></p>
-        <p><button type="button" className="secondary" onClick={() => { setMfa(null); setCode(""); }}>Zurück</button></p>
-      </form>
+      <div className="login-seite">
+        <form className="login" onSubmit={mfaSenden}>
+          <h1>{PRODUCT_NAME}</h1>
+          <p className="hinweis">
+            Zweiter Faktor{mfa.includes("backup_code") ? " (Code aus der App oder Backup-Code)" : " (Code aus der App)"}:
+          </p>
+          <label>Code<input value={code} onChange={(event) => setCode(event.target.value)} autoFocus inputMode="numeric" autoComplete="one-time-code" /></label>
+          <Fehler text={fehler} />
+          <div className="login-knöpfe">
+            <button type="submit">Bestätigen</button>
+            <button type="button" className="secondary" onClick={() => { setMfa(null); setCode(""); }}>Zurück</button>
+          </div>
+        </form>
+      </div>
     );
   }
 
   return (
-    <form className="login" onSubmit={senden}>
-      <h1>{PRODUCT_NAME}</h1>
-      <label>Benutzername<input value={benutzername} onChange={(event) => setBenutzername(event.target.value)} autoFocus autoComplete="username" /></label>
-      <label>Passwort<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" /></label>
-      <Fehler text={fehler} />
-      <p><button type="submit">Anmelden</button></p>
-      <p><button type="button" className="secondary" onClick={() => void mitPasskey()}>Mit Passkey anmelden</button></p>
-      <div className="links">
-        <LinkIntern href="/passwort-vergessen">Passwort vergessen?</LinkIntern>
-      </div>
-    </form>
+    <div className="login-seite">
+      <form className="login" onSubmit={senden}>
+        <h1>{PRODUCT_NAME}</h1>
+        <label>Benutzername<input value={benutzername} onChange={(event) => setBenutzername(event.target.value)} autoFocus autoComplete="username" /></label>
+        <label>Passwort<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" /></label>
+        <Fehler text={fehler} />
+        <div className="login-knöpfe">
+          <button type="submit">Anmelden</button>
+          <button type="button" className="secondary" onClick={() => void mitPasskey()}>Mit Passkey anmelden</button>
+        </div>
+        <div className="links">
+          <LinkIntern href="/passwort-vergessen">Passwort vergessen?</LinkIntern>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -250,14 +286,18 @@ function PasswortAendern({ benutzer, onOk }: { benutzer: Benutzer; onOk: (benutz
     }
   }
   return (
-    <form className="login" onSubmit={senden}>
-      <h1>{PRODUCT_NAME}</h1>
-      <p className="hinweis">Hallo {benutzer.benutzername}, bitte vergib ein eigenes Passwort (mind. 8 Zeichen).</p>
-      <label>Altes Passwort<input type="password" value={alt} onChange={(event) => setAlt(event.target.value)} autoFocus autoComplete="current-password" /></label>
-      <label>Neues Passwort<input type="password" value={neu} onChange={(event) => setNeu(event.target.value)} autoComplete="new-password" /></label>
-      <label>Neues Passwort wiederholen<input type="password" value={wiederholung} onChange={(event) => setWiederholung(event.target.value)} autoComplete="new-password" /></label>
-      <Fehler text={fehler} />
-      <p><button type="submit">Passwort speichern</button></p>
-    </form>
+    <div className="login-seite">
+      <form className="login" onSubmit={senden}>
+        <h1>{PRODUCT_NAME}</h1>
+        <p className="hinweis">Hallo {benutzer.benutzername}, bitte vergib ein eigenes Passwort (mind. 8 Zeichen).</p>
+        <label>Altes Passwort<input type="password" value={alt} onChange={(event) => setAlt(event.target.value)} autoFocus autoComplete="current-password" /></label>
+        <label>Neues Passwort<input type="password" value={neu} onChange={(event) => setNeu(event.target.value)} autoComplete="new-password" /></label>
+        <label>Neues Passwort wiederholen<input type="password" value={wiederholung} onChange={(event) => setWiederholung(event.target.value)} autoComplete="new-password" /></label>
+        <Fehler text={fehler} />
+        <div className="login-knöpfe">
+          <button type="submit">Passwort speichern</button>
+        </div>
+      </form>
+    </div>
   );
 }

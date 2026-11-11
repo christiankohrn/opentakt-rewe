@@ -243,34 +243,36 @@ export function SicherheitEinstellungen({ onFehler }: { onFehler: (text: string)
         <p className="hinweis">Anmelden ohne Passwort, z. B. mit Fingerabdruck oder Sicherheitsschlüssel.</p>
         {status.passkeys.length === 0 && <p className="hinweis">Noch keine Passkeys registriert.</p>}
         {status.passkeys.length > 0 && (
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Erstellt</th>
-                <th>Zuletzt benutzt</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {status.passkeys.map((passkey) => (
-                <tr key={passkey.passkey_id}>
-                  <td>
-                    <input
-                      value={namen[passkey.passkey_id] ?? passkey.name}
-                      onChange={(event) => setNamen({ ...namen, [passkey.passkey_id]: event.target.value })}
-                      onBlur={() => void umbenennen(passkey)}
-                    />
-                  </td>
-                  <td>{datum(passkey.erstellt)}</td>
-                  <td>{datum(passkey.zuletzt_benutzt)}</td>
-                  <td>
-                    <button type="button" className="danger" onClick={() => void loeschen(passkey)}>Entfernen</button>
-                  </td>
+          <div className="tabelle-scroll" style={{ marginBottom: "0.8rem" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Erstellt</th>
+                  <th>Zuletzt benutzt</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {status.passkeys.map((passkey) => (
+                  <tr key={passkey.passkey_id}>
+                    <td>
+                      <input
+                        value={namen[passkey.passkey_id] ?? passkey.name}
+                        onChange={(event) => setNamen({ ...namen, [passkey.passkey_id]: event.target.value })}
+                        onBlur={() => void umbenennen(passkey)}
+                      />
+                    </td>
+                    <td>{datum(passkey.erstellt)}</td>
+                    <td>{datum(passkey.zuletzt_benutzt)}</td>
+                    <td>
+                      <button type="button" className="danger kompakt-knopf" onClick={() => void loeschen(passkey)}>Entfernen</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         <form onSubmit={(event) => void passkeyAnlegen(event)}>
           <div className="form-gruppen">

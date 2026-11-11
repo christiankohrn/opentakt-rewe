@@ -86,6 +86,15 @@ export function IconKonto({ className }: IconProps) {
   );
 }
 
+export function IconUpload({ className }: IconProps) {
+  return (
+    <Geruest className={className}>
+      <path d="M12 16V4M7 9l5-5 5 5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2" strokeLinecap="round" strokeLinejoin="round" />
+    </Geruest>
+  );
+}
+
 export function IconAbmelden({ className }: IconProps) {
   return (
     <Geruest className={className}>

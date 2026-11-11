@@ -729,7 +729,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
       <header className="optionen-kopf">
         <h1>Einstellungen</h1>
       </header>
-      <div className="reiter" role="tablist" aria-label="Einstellungen">
+      <div className="reiter optionen-reiter" role="tablist" aria-label="Einstellungen">
         <button type="button" role="tab" aria-selected={reiter === "stammdaten"} className={reiter === "stammdaten" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("stammdaten")}>
           Stammdaten
         </button>
@@ -775,14 +775,14 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
               <label>Straße & Hausnummer (XRechnung-XML)
                 <input value={stammdaten.strasse_xml} onChange={(event) => setStammdaten({ ...stammdaten, strasse_xml: event.target.value })} placeholder="wird sonst aus Straße gebildet" />
               </label>
-              <div className="row">
-                <label style={{ width: "7rem" }}>PLZ
+              <div className="plz-ort-land">
+                <label>PLZ
                   <input value={stammdaten.plz} onChange={(event) => setStammdaten({ ...stammdaten, plz: event.target.value })} />
                 </label>
-                <label style={{ flex: 1 }}>Ort
+                <label>Ort
                   <input value={stammdaten.ort} onChange={(event) => setStammdaten({ ...stammdaten, ort: event.target.value })} />
                 </label>
-                <label style={{ width: "5rem" }}>Land
+                <label>Land
                   <input value={stammdaten.land} onChange={(event) => setStammdaten({ ...stammdaten, land: event.target.value })} />
                 </label>
               </div>
@@ -1157,59 +1157,61 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
             </div>
           </div>
           {kriterienHinweis && <p className="hinweis">{kriterienHinweis}</p>}
-          <table className="optionen-tabelle">
-            <thead>
-              <tr>
-                <th style={{ width: "11rem" }}>Konto</th>
-                <th style={{ width: "13rem" }}>Prüfart</th>
-                <th>Suchmuster (Dateiname, IBAN, BIC oder Kartennummer)</th>
-                <th style={{ width: "4rem" }} />
-              </tr>
-            </thead>
-            <tbody>
-              {kriterien.map((kriterium, index) => (
-                <tr key={kriterium.kriterium_id || `neu-${index}`}>
-                  <td>
-                    <input
-                      aria-label="Konto"
-                      list="konten-liste"
-                      value={kriterium.schluessel}
-                      onChange={(event) => setKriterien(kriterien.map((eintrag, item) => item === index ? { ...eintrag, schluessel: event.target.value } : eintrag))}
-                    />
-                  </td>
-                  <td>
-                    <select
-                      aria-label="Art"
-                      value={kriterium.art}
-                      onChange={(event) => setKriterien(kriterien.map((eintrag, item) => item === index ? { ...eintrag, art: event.target.value } : eintrag))}
-                    >
-                      {KRITERIUM_ARTEN.map((art) => (
-                        <option key={art.wert} value={art.wert}>{art.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      aria-label="Muster"
-                      value={kriterium.muster}
-                      placeholder="z. B. statement, DE89..., xxxx-12345"
-                      onChange={(event) => setKriterien(kriterien.map((eintrag, item) => item === index ? { ...eintrag, muster: event.target.value } : eintrag))}
-                    />
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="danger"
-                      title="Kriterium entfernen"
-                      onClick={() => setKriterien(kriterien.filter((_, item) => item !== index))}
-                    >
-                      ×
-                    </button>
-                  </td>
+          <div className="tabelle-scroll">
+            <table className="optionen-tabelle optionen-kriterien-tabelle">
+              <thead>
+                <tr>
+                  <th style={{ width: "10rem" }}>Konto</th>
+                  <th style={{ width: "12rem" }}>Prüfart</th>
+                  <th>Suchmuster (Dateiname, IBAN, BIC oder Kartennummer)</th>
+                  <th style={{ width: "3.5rem" }} />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {kriterien.map((kriterium, index) => (
+                  <tr key={kriterium.kriterium_id || `neu-${index}`}>
+                    <td>
+                      <input
+                        aria-label="Konto"
+                        list="konten-liste"
+                        value={kriterium.schluessel}
+                        onChange={(event) => setKriterien(kriterien.map((eintrag, item) => item === index ? { ...eintrag, schluessel: event.target.value } : eintrag))}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        aria-label="Art"
+                        value={kriterium.art}
+                        onChange={(event) => setKriterien(kriterien.map((eintrag, item) => item === index ? { ...eintrag, art: event.target.value } : eintrag))}
+                      >
+                        {KRITERIUM_ARTEN.map((art) => (
+                          <option key={art.wert} value={art.wert}>{art.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        aria-label="Muster"
+                        value={kriterium.muster}
+                        placeholder="z. B. statement, DE89..., xxxx-12345"
+                        onChange={(event) => setKriterien(kriterien.map((eintrag, item) => item === index ? { ...eintrag, muster: event.target.value } : eintrag))}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="danger kompakt-knopf"
+                        title="Kriterium entfernen"
+                        onClick={() => setKriterien(kriterien.filter((_, item) => item !== index))}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <datalist id="konten-liste">
             {kategorien.map((k) => <option key={k.schluessel} value={k.schluessel}>{k.name}</option>)}
           </datalist>

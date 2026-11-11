@@ -63,6 +63,7 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
   const [aktiv, setAktiv] = useState<Kunde | null>(null);
   const [rechnungen, setRechnungen] = useState<RechnungKurz[]>([]);
   const [vorschauId, setVorschauId] = useState<number | null>(null);
+  const [meldung, setMeldung] = useState("");
   const [tipp, setTipp] = useState<{ x: number; y: number; text: string } | null>(null);
   const tippCache = useRef(new Map<number, string>());
 
@@ -80,7 +81,10 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
     return () => window.clearTimeout(timer);
   }, [suche]);
 
-  useEffect(() => { setVorschauId(null); }, [kundeId]);
+  useEffect(() => {
+    setVorschauId(null);
+    setMeldung("");
+  }, [kundeId, neu]);
 
   useEffect(() => {
     if (neu) {
@@ -122,9 +126,23 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
       setAktiv(gespeichert);
       await laden(suche);
       gehe("/kunden/" + gespeichert.kunden_id);
+      setMeldung("Kunde gespeichert.");
       onFehler("");
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen.");
+    }
+  }
+
+  async function rechnungAnlegen() {
+    if (!aktiv?.kunden_id) return;
+    try {
+      const angelegt = await api<{ rechnungs_id: number }>("/api/rechnungen", {
+        method: "POST",
+        body: JSON.stringify({ kunde_id: aktiv.kunden_id }),
+      });
+      gehe("/rechnungen/" + angelegt.rechnungs_id);
+    } catch (exc) {
+      onFehler(exc instanceof ApiFehler ? exc.message : "Rechnung konnte nicht angelegt werden.");
     }
   }
 
@@ -161,79 +179,111 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
     })
     : gefiltert;
 
+  const hatDetail = Boolean(kundeId || neu);
+
   return (
-    <div className="split">
-      <div className="spalte">
+    <div className={`split ${hatDetail ? "hat-detail" : "nur-liste"}`}>
+      <div className="spalte liste-spalte master-spalte">
         {vorschauId ? (
           <>
             <div className="vorschau-kopf">
-              <button type="button" onClick={() => setVorschauId(null)}>Schließen</button>
+              <button type="button" className="secondary" onClick={() => setVorschauId(null)}>← Zur Kundenliste</button>
               <button type="button" onClick={() => gehe("/rechnungen/" + vorschauId)}>In Rechnungen öffnen</button>
             </div>
             <PdfVorschau url={"/api/rechnungen/" + vorschauId + "/vorschau"} titel="Rechnung" />
-            <a className="button datei-link" href={"/api/rechnungen/" + vorschauId + "/vorschau"} target="_blank" rel="noreferrer">Datei öffnen</a>
+            <a className="button secondary datei-link" href={"/api/rechnungen/" + vorschauId + "/vorschau"} target="_blank" rel="noreferrer">PDF in neuem Tab</a>
           </>
         ) : (
-        <>
-        <form className="row" onSubmit={sucheForm}>
-          <label>Suche<input value={suche} onChange={(event) => setSuche(event.target.value)} /></label>
-        </form>
-        <div className="liste-werkzeug">
-          <LinkIntern href="/kunden/neu" className="button">Neu</LinkIntern>
-          <button type="button" className="secondary" onClick={() => { setSortierung(null); setAnker(-1); }}>Zurücksetzen</button>
-        </div>
-        <DatenListe
-          zeilen={sichtbar}
-          zeilenId={(kunde) => kunde.kunden_id}
-          href={(kunde) => "/kunden/" + kunde.kunden_id}
-          aktivId={kundeId}
-          gewaehlt={gewaehlt}
-          sortierung={sortierung}
-          onSort={(spalte) => setSortierung((bisher) => bisher?.spalte === spalte ? { spalte, richtung: bisher.richtung === "ab" ? "auf" : "ab" } : { spalte, richtung: "ab" })}
-          onZeile={(event, index) => {
-            const ids = sichtbar.map((kunde) => kunde.kunden_id);
-            const ergebnis = zeilenWahl(event, index, ids, gewaehlt, anker);
-            setGewaehlt(ergebnis.ids);
-            setAnker(ergebnis.anker);
-            gehe("/kunden/" + ids[index]);
-          }}
-          spalten={[
-            { key: "nummer", titel: "Kunde Nr.", zelle: (kunde) => kunde.kunden_id },
-            { key: "name", titel: "Name", zelle: (kunde) => kunde.name1 },
-            { key: "ort", titel: "Ort", zelle: (kunde) => `${kunde.plz} ${kunde.ort}` },
-          ]}
-        />
-        </>
+          <>
+            <div className="liste-werkzeug">
+              <LinkIntern href="/kunden/neu" className="button">+ Neuer Kunde</LinkIntern>
+              {(suche.trim() || sortierung) && (
+                <button type="button" className="secondary kompakt-knopf" onClick={() => { setSuche(""); setSortierung(null); setAnker(-1); }}>
+                  Filter leeren
+                </button>
+              )}
+            </div>
+            <form onSubmit={sucheForm} style={{ margin: "0.45rem 0" }}>
+              <input
+                aria-label="Kunden suchen"
+                placeholder="Name, Ort oder E-Mail suchen …"
+                value={suche}
+                onChange={(event) => setSuche(event.target.value)}
+              />
+            </form>
+            <div className="liste-scroll">
+              <DatenListe
+                zeilen={sichtbar}
+                zeilenId={(kunde) => kunde.kunden_id}
+                href={(kunde) => "/kunden/" + kunde.kunden_id}
+                aktivId={kundeId}
+                gewaehlt={gewaehlt}
+                sortierung={sortierung}
+                onSort={(spalte) => setSortierung((bisher) => bisher?.spalte === spalte ? { spalte, richtung: bisher.richtung === "ab" ? "auf" : "ab" } : { spalte, richtung: "ab" })}
+                onZeile={(event, index) => {
+                  const ids = sichtbar.map((kunde) => kunde.kunden_id);
+                  const ergebnis = zeilenWahl(event, index, ids, gewaehlt, anker);
+                  setGewaehlt(ergebnis.ids);
+                  setAnker(ergebnis.anker);
+                  gehe("/kunden/" + ids[index]);
+                }}
+                spalten={[
+                  { key: "nummer", titel: "Nr.", zelle: (kunde) => kunde.kunden_id },
+                  { key: "name", titel: "Name", zelle: (kunde) => kunde.name1 || "—" },
+                  { key: "ort", titel: "Ort", zelle: (kunde) => `${kunde.plz} ${kunde.ort}`.trim() || "—" },
+                ]}
+              />
+            </div>
+          </>
         )}
       </div>
-      <div className="spalte">
-        {!aktiv && <p className="hinweis">Kunde wählen oder neu anlegen.</p>}
+      <div className="spalte detail-spalte">
+        {!aktiv && <p className="hinweis vorschau-mitte">Kunde links auswählen oder neu anlegen.</p>}
         {aktiv && (
-          <>
-            <h2>{aktiv.kunden_id ? `Kunde ${aktiv.kunden_id}` : "Neuer Kunde"}</h2>
+          <div className="detail-inhalt">
+            <div className="mobil-zurueck-leiste">
+              <LinkIntern href="/kunden" className="button secondary kompakt-knopf">← Alle Kunden</LinkIntern>
+            </div>
+            <div className="detail-kopf">
+              <div>
+                <h2>{aktiv.kunden_id ? (aktiv.name1 || `Kunde ${aktiv.kunden_id}`) : "Neuer Kunde"}</h2>
+                {aktiv.kunden_id > 0 && <p className="hinweis detail-untertitel">Kunden-Nr. {aktiv.kunden_id}</p>}
+              </div>
+              <div className="actions" style={{ margin: 0 }}>
+                <button type="button" onClick={() => void speichern()}>Speichern</button>
+                {aktiv.kunden_id > 0 && (
+                  <button type="button" className="secondary" onClick={() => void rechnungAnlegen()}>
+                    + Neue Rechnung
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {meldung && <p className="erfolg-hinweis" role="status">{meldung}</p>}
+
             <div className="form-gruppen">
               <fieldset className="block">
-                <legend>Name</legend>
-                <label>Name1:<input value={aktiv.name1} onChange={(event) => feld("name1", event.target.value)} /></label>
-                <label>Name2:<input value={aktiv.name2} onChange={(event) => feld("name2", event.target.value)} /></label>
-                <label>Name3:<input value={aktiv.name3} onChange={(event) => feld("name3", event.target.value)} /></label>
-                <label>Stundensatz:<input value={aktiv.stundensatz} onChange={(event) => feld("stundensatz", event.target.value)} /></label>
+                <legend>Name & Konditionen</legend>
+                <label>Name 1<input value={aktiv.name1} onChange={(event) => feld("name1", event.target.value)} /></label>
+                <label>Name 2<input value={aktiv.name2} onChange={(event) => feld("name2", event.target.value)} /></label>
+                <label>Name 3<input value={aktiv.name3} onChange={(event) => feld("name3", event.target.value)} /></label>
+                <label>Stundensatz (€)<input inputMode="decimal" value={aktiv.stundensatz} onChange={(event) => feld("stundensatz", event.target.value)} /></label>
               </fieldset>
               <fieldset className="block">
                 <legend>Anschrift</legend>
-                <label>Strasse:<input value={aktiv.strasse} onChange={(event) => feld("strasse", event.target.value)} /></label>
+                <label>Straße & Hausnummer<input value={aktiv.strasse} onChange={(event) => feld("strasse", event.target.value)} /></label>
                 <div className="plz-ort">
-                  <label>PLZ:<input value={aktiv.plz} onChange={(event) => feld("plz", event.target.value)} /></label>
-                  <label>Ort:<input value={aktiv.ort} onChange={(event) => feld("ort", event.target.value)} /></label>
+                  <label>PLZ<input value={aktiv.plz} onChange={(event) => feld("plz", event.target.value)} /></label>
+                  <label>Ort<input value={aktiv.ort} onChange={(event) => feld("ort", event.target.value)} /></label>
                 </div>
               </fieldset>
               <fieldset className="block">
-                <legend>Kontakt:</legend>
-                <label>Tel G:<input value={aktiv.tel1 || ""} onChange={(event) => feld("tel1", event.target.value)} /></label>
-                <label>Tel P:<input value={aktiv.tel2 || ""} onChange={(event) => feld("tel2", event.target.value)} /></label>
-                <label>Tel M:<input value={aktiv.tel3 || ""} onChange={(event) => feld("tel3", event.target.value)} /></label>
-                <label>Fax:<input value={aktiv.fax || ""} onChange={(event) => feld("fax", event.target.value)} /></label>
-                <label>Email:<input value={aktiv.email || ""} onChange={(event) => feld("email", event.target.value)} /></label>
+                <legend>Kontakt</legend>
+                <label>E-Mail<input type="email" value={aktiv.email || ""} onChange={(event) => feld("email", event.target.value)} /></label>
+                <label>Telefon geschäftlich<input type="tel" value={aktiv.tel1 || ""} onChange={(event) => feld("tel1", event.target.value)} /></label>
+                <label>Mobil<input type="tel" value={aktiv.tel3 || ""} onChange={(event) => feld("tel3", event.target.value)} /></label>
+                <label>Telefon privat<input type="tel" value={aktiv.tel2 || ""} onChange={(event) => feld("tel2", event.target.value)} /></label>
+                <label>Fax<input type="tel" value={aktiv.fax || ""} onChange={(event) => feld("fax", event.target.value)} /></label>
               </fieldset>
               <fieldset className="block">
                 <legend>Steuer</legend>
@@ -241,48 +291,67 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
                   <input type="checkbox" checked={aktiv.keine_mehrwertsteuer} onChange={(event) => feld("keine_mehrwertsteuer", event.target.checked)} />
                   Keine MwSt. berechnen
                 </label>
-                <label>Umsatzsteuer ID:<input value={aktiv.umsatzsteuer_id} onChange={(event) => feld("umsatzsteuer_id", event.target.value)} /></label>
+                <label>Umsatzsteuer-ID<input value={aktiv.umsatzsteuer_id} placeholder="z. B. DE123456789" onChange={(event) => feld("umsatzsteuer_id", event.target.value)} /></label>
               </fieldset>
             </div>
-            <div className="actions">
-              <button type="button" onClick={() => void speichern()}>Speichern</button>
-              {aktiv.kunden_id > 0 && <button type="button" className="danger" onClick={() => void loeschen()}>Löschen</button>}
+            <div className="liste-werkzeug" style={{ marginTop: "0.85rem" }}>
+              <button type="button" onClick={() => void speichern()}>Kunde speichern</button>
+              {aktiv.kunden_id > 0 && <button type="button" className="danger" onClick={() => void loeschen()}>Kunde löschen</button>}
             </div>
             {aktiv.kunden_id > 0 && (
-              <>
-                <h3>Rechnungen</h3>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Datum</th><th>Name</th><th>Re-Nr</th><th>Netto</th><th>Bezahlt</th><th>Zahlung</th><th>Brutto</th><th>Wh. Mon</th><th>Wh. Termin</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rechnungen.map((rechnung) => (
-                      <tr
-                        key={rechnung.rechnungs_id}
-                        className="click"
-                        onClick={() => setVorschauId(rechnung.rechnungs_id)}
-                        onDoubleClick={() => gehe("/rechnungen/" + rechnung.rechnungs_id)}
-                        onMouseEnter={(event) => void positionenZeigen(event, rechnung.rechnungs_id)}
-                        onMouseLeave={() => setTipp(null)}
-                      >
-                        <td>{datumDE(rechnung.datum)}</td>
-                        <td>{rechnung.name1}</td>
-                        <td>{rechnung.archiv ? (rechnung.rechnungs_nr ? `${rechnung.rechnungs_nr} Archiv` : "Archiv") : (rechnung.rechnungs_nr || "Entwurf")}</td>
-                        <td>{geld(rechnung.netto)}</td>
-                        <td>{geld(rechnung.bezahlt)}</td>
-                        <td>{datumDE(rechnung.bezahlt_am)}</td>
-                        <td>{geld(rechnung.brutto)}</td>
-                        <td>{rechnung.wiederholung_monate ?? ""}</td>
-                        <td>{datumDE(rechnung.wiedervorlage_termin)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </>
+              <div style={{ marginTop: "1.2rem" }}>
+                <h3>Bisherige Rechnungen ({rechnungen.length})</h3>
+                {rechnungen.length === 0 ? (
+                  <p className="hinweis">Noch keine Rechnungen für diesen Kunden vorhanden.</p>
+                ) : (
+                  <div className="tabelle-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Re-Nr.</th><th>Datum</th><th>Netto</th><th>Brutto</th><th>Bezahlt</th><th>Zahlung</th><th>Serie</th><th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rechnungen.map((rechnung) => (
+                          <tr
+                            key={rechnung.rechnungs_id}
+                            className="click"
+                            onClick={() => {
+                              if (window.innerWidth <= 1024) gehe("/rechnungen/" + rechnung.rechnungs_id);
+                              else setVorschauId(rechnung.rechnungs_id);
+                            }}
+                            onDoubleClick={() => gehe("/rechnungen/" + rechnung.rechnungs_id)}
+                            onMouseEnter={(event) => void positionenZeigen(event, rechnung.rechnungs_id)}
+                            onMouseLeave={() => setTipp(null)}
+                          >
+                            <td><strong>{rechnung.archiv ? (rechnung.rechnungs_nr ? `${rechnung.rechnungs_nr} (Archiv)` : "Archiv") : (rechnung.rechnungs_nr || "Entwurf")}</strong></td>
+                            <td>{datumDE(rechnung.datum)}</td>
+                            <td>{geld(rechnung.netto)}</td>
+                            <td>{geld(rechnung.brutto)}</td>
+                            <td>{geld(rechnung.bezahlt)}</td>
+                            <td>{datumDE(rechnung.bezahlt_am) || "—"}</td>
+                            <td>{rechnung.wiedervorlage_termin ? `${datumDE(rechnung.wiedervorlage_termin)}${rechnung.wiederholung_monate ? ` (${rechnung.wiederholung_monate} M.)` : ""}` : "—"}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="secondary kompakt-knopf"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  gehe("/rechnungen/" + rechnung.rechnungs_id);
+                                }}
+                              >
+                                Öffnen
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
-          </>
+          </div>
         )}
       </div>
       {tipp && <div className="tooltip" style={{ left: tipp.x, top: tipp.y }}>{tipp.text}</div>}
@@ -290,6 +359,7 @@ export function KundenSeite({ kundeId, neu, onFehler }: { kundeId: number | null
   );
 
   async function positionenZeigen(event: MouseEvent, id: number) {
+    if (window.innerWidth <= 1024) return;
     const x = event.clientX + 12;
     const y = event.clientY + 16;
     const bekannt = tippCache.current.get(id);

@@ -1,7 +1,7 @@
 import { useEffect, useState, type FocusEvent, type FormEvent, type KeyboardEvent, type MouseEvent } from "react";
 import { ApiFehler, api, datumDE, geld, heuteISO, pdfSpeichern } from "./api";
 import { DatenListe, zeilenWahl, type Sortierung } from "./liste";
-import { gehe } from "./nav";
+import { LinkIntern, gehe } from "./nav";
 import { DateiLink, PdfVorschau } from "./vorschau";
 
 type Kunde = { kunden_id: number; name1: string };
@@ -52,8 +52,15 @@ function cent(wert: string | null | undefined): number {
 }
 
 function nummerText(rechnung: Rechnung): string {
-  if (rechnung.archiv) return rechnung.rechnungs_nr ? `${rechnung.rechnungs_nr} Archiv` : "Archiv";
+  if (rechnung.archiv) return rechnung.rechnungs_nr ? `${rechnung.rechnungs_nr} (Archiv)` : "Archiv";
   return rechnung.rechnungs_nr || "Entwurf";
+}
+
+function statusText(rechnung: Rechnung): { label: string; ton: "entwurf" | "offen" | "ok" | "gedaempft" } {
+  if (rechnung.archiv) return { label: "Archiv", ton: "gedaempft" };
+  if (!rechnung.rechnungs_nr) return { label: "Entwurf", ton: "entwurf" };
+  if (cent(rechnung.bezahlt) >= cent(rechnung.brutto)) return { label: "Bezahlt", ton: "ok" };
+  return { label: "Offen", ton: "offen" };
 }
 
 type Summen = { offen: string; zu_berechnen: string };
@@ -177,8 +184,8 @@ export function RechnungenSeite({ rechnungId, onFehler }: { rechnungId: number |
     gehe("/rechnungen/" + ids[index]);
   }
 
-  async function loeschen() {
-    const ids = markiert.length ? markiert.map((eintrag) => eintrag.id) : rechnungId ? [rechnungId] : [];
+  async function loeschen(einzelId?: number) {
+    const ids = einzelId ? [einzelId] : markiert.length ? markiert.map((eintrag) => eintrag.id) : rechnungId ? [rechnungId] : [];
     if (!ids.length) return;
     const frage = ids.length === 1 ? "Soll diese Rechnung gelöscht werden?" : `Sollen ${ids.length} Rechnungen gelöscht werden?`;
     if (!window.confirm(frage)) return;
@@ -200,27 +207,70 @@ export function RechnungenSeite({ rechnungId, onFehler }: { rechnungId: number |
       : { spalte, richtung: "ab" });
   }
 
+  const hatFilter = Boolean(name.trim() || position.trim() || sortierung || listenart !== "aktuell");
   const von = gesamt === 0 ? 0 : seite * SEITE + 1;
   const bis = Math.min(gesamt, (seite + 1) * SEITE);
+  const aktivIndex = rechnungId ? liste.findIndex((r) => r.rechnungs_id === rechnungId) : -1;
+  const vorigeId = aktivIndex > 0 ? liste[aktivIndex - 1].rechnungs_id : null;
+  const naechsteId = aktivIndex >= 0 && aktivIndex + 1 < liste.length ? liste[aktivIndex + 1].rechnungs_id : null;
 
   return (
-    <div className="split">
-      <div className="spalte liste-spalte">
+    <div className={`split ${rechnungId ? "hat-detail" : "nur-liste"}`}>
+      <div className="spalte liste-spalte master-spalte">
         <div className="liste-werkzeug">
-          <button type="button" onClick={() => void neu()}>Neue Rechnung</button>
-          <button type="button" className="danger" onClick={() => void loeschen()}>Löschen</button>
+          <button type="button" onClick={() => void neu()}>+ Neue Rechnung</button>
+          <div className="actions" style={{ margin: 0 }}>
+            {hatFilter && (
+              <button
+                type="button"
+                className="secondary kompakt-knopf"
+                onClick={() => {
+                  setSeite(0);
+                  setAnker(-1);
+                  setName("");
+                  setPosition("");
+                  setListenart("aktuell");
+                  setSortierung(null);
+                }}
+              >
+                Filter leeren
+              </button>
+            )}
+            {markiert.length > 1 && (
+              <button type="button" className="danger kompakt-knopf" onClick={() => void loeschen()}>
+                {markiert.length} löschen
+              </button>
+            )}
+          </div>
         </div>
-        <form className="suche-schmal" onSubmit={sucheForm}>
-          <label>Suche<input value={name} onChange={(event) => { setSeite(0); setAnker(-1); setName(event.target.value); }} /></label>
-        </form>
-        <div className="actions">
+        <div className="reiter kompakt-reiter" role="tablist" aria-label="Rechnungsansicht">
           {(["aktuell", "alle", "archiv"] as const).map((art) => (
-            <button key={art} type="button" className={listenart === art ? "" : "secondary"} onClick={() => { setSeite(0); setAnker(-1); setListenart(art); }}>
+            <button
+              key={art}
+              type="button"
+              role="tab"
+              aria-selected={listenart === art}
+              className={listenart === art ? "reiter-knopf aktiv" : "reiter-knopf"}
+              onClick={() => { setSeite(0); setAnker(-1); setListenart(art); }}
+            >
               {art === "aktuell" ? "Aktuell" : art === "alle" ? "Alle" : "Archiv"}
             </button>
           ))}
-          <button type="button" className="secondary" onClick={() => { setSeite(0); setAnker(-1); setSortierung(null); }}>Zurücksetzen</button>
         </div>
+        <form className="suche-paar" onSubmit={sucheForm}>
+          <input
+            aria-label="Kunde oder Rechnungsnummer suchen"
+            placeholder="Kunde oder Nummer suchen …"
+            value={name}
+            onChange={(event) => { setSeite(0); setAnker(-1); setName(event.target.value); }}
+          />
+          <input
+            aria-label="Nach Positionen suchen"
+            placeholder="Positionstext suchen …"
+            value={position}
+            onChange={(event) => { setSeite(0); setAnker(-1); setPosition(event.target.value); }}
+          />
+        </form>
         <div className="liste-scroll">
           <DatenListe
             zeilen={liste}
@@ -236,26 +286,41 @@ export function RechnungenSeite({ rechnungId, onFehler }: { rechnungId: number |
             spalten={[
               { key: "nummer", titel: "Nummer", zelle: nummerText },
               { key: "datum", titel: "Datum", zelle: (rechnung) => datumDE(rechnung.datum) },
-              { key: "kunde", titel: "Kunde", zelle: (rechnung) => rechnung.name1 },
+              { key: "kunde", titel: "Kunde", zelle: (rechnung) => rechnung.name1 || "—" },
               { key: "brutto", titel: "Brutto", zelle: (rechnung) => geld(rechnung.brutto) },
               { key: "bezahlt", titel: "Bezahlt", zelle: (rechnung) => geld(rechnung.bezahlt) },
               { key: "stb", titel: "StB", zelle: (rechnung) => rechnung.datev_gesendet ? datumDE(rechnung.datev_gesendet) : (rechnung.rechnungs_nr ? "offen" : "—") },
             ]}
           />
         </div>
-        <div className="seiten">
-          <button type="button" className="secondary" disabled={seite === 0} onClick={() => { setAnker(-1); setSeite((wert) => wert - 1); }}>Zurück</button>
-          <span>{von}–{bis} von {gesamt}</span>
-          <button type="button" className="secondary" disabled={bis >= gesamt} onClick={() => { setAnker(-1); setSeite((wert) => wert + 1); }}>Weiter</button>
-        </div>
+        {gesamt > SEITE && (
+          <div className="seiten">
+            <button type="button" className="secondary kompakt-knopf" disabled={seite === 0} onClick={() => { setAnker(-1); setSeite((wert) => wert - 1); }}>← Zurück</button>
+            <span className="hinweis">{von}–{bis} von {gesamt}</span>
+            <button type="button" className="secondary kompakt-knopf" disabled={bis >= gesamt} onClick={() => { setAnker(-1); setSeite((wert) => wert + 1); }}>Weiter →</button>
+          </div>
+        )}
         <footer className="liste-fuss fuss-block">
           <div className="fuss-zeile">
-            <fieldset className="block sichtbar-kasten"><legend>Sichtbar</legend><span>Summe: {geld(sichtbar.summe)}</span><span>offen: {geld(sichtbar.offen)}</span></fieldset>
-            <fieldset className="block"><legend>Markiert</legend><span>Summe: {geld(markiertSumme)}</span><span>offen: {geld(markiertOffen)}</span></fieldset>
-            <fieldset className="block"><legend>Zu berechnen</legend><span>{geld(summen.zu_berechnen)}</span></fieldset>
-            <fieldset className="block"><legend>Offen</legend><span>{geld(summen.offen)}</span></fieldset>
+            <fieldset className="block kpi-kasten">
+              <legend>Sichtbar ({gesamt})</legend>
+              <div><strong>{geld(sichtbar.summe)}</strong> <span className="hinweis">offen {geld(sichtbar.offen)}</span></div>
+            </fieldset>
+            <fieldset className="block kpi-kasten">
+              <legend>Offen gesamt</legend>
+              <div><strong>{geld(summen.offen)}</strong></div>
+            </fieldset>
+            <fieldset className="block kpi-kasten">
+              <legend>Entwürfe</legend>
+              <div><strong>{geld(summen.zu_berechnen)}</strong></div>
+            </fieldset>
+            {markiert.length > 1 && (
+              <fieldset className="block kpi-kasten">
+                <legend>Markiert ({markiert.length})</legend>
+                <div><strong>{geld(markiertSumme)}</strong> <span className="hinweis">offen {geld(markiertOffen)}</span></div>
+              </fieldset>
+            )}
           </div>
-          <label>Nach Positionen suchen<input value={position} onChange={(event) => { setSeite(0); setAnker(-1); setPosition(event.target.value); }} /></label>
         </footer>
         {menu && (
           <div className="menu" style={{ left: menu.x, top: menu.y }} onClick={(event) => event.stopPropagation()}>
@@ -268,8 +333,19 @@ export function RechnungenSeite({ rechnungId, onFehler }: { rechnungId: number |
           </div>
         )}
       </div>
-      <div className="spalte">
-        {rechnungId ? <RechnungEditor id={rechnungId} onFehler={onFehler} onGeaendert={() => laden(name, position, listenart, seite, sortierung)} /> : <p className="hinweis vorschau-mitte">Rechnung wählen.</p>}
+      <div className="spalte detail-spalte">
+        {rechnungId ? (
+          <RechnungEditor
+            id={rechnungId}
+            vorigeId={vorigeId}
+            naechsteId={naechsteId}
+            onFehler={onFehler}
+            onLoeschen={() => void loeschen(rechnungId)}
+            onGeaendert={() => laden(name, position, listenart, seite, sortierung)}
+          />
+        ) : (
+          <p className="hinweis vorschau-mitte">Rechnung links auswählen oder neue Rechnung anlegen.</p>
+        )}
       </div>
     </div>
   );
@@ -318,7 +394,21 @@ function taste(event: KeyboardEvent<HTMLInputElement>, index: number, feld: stri
   document.querySelector<HTMLElement>(`[data-pos="${index}"][data-feld="${POS_FELDER[naechstes]}"]`)?.focus();
 }
 
-function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (text: string) => void; onGeaendert: () => void }) {
+function RechnungEditor({
+  id,
+  vorigeId,
+  naechsteId,
+  onFehler,
+  onLoeschen,
+  onGeaendert,
+}: {
+  id: number;
+  vorigeId: number | null;
+  naechsteId: number | null;
+  onFehler: (text: string) => void;
+  onLoeschen: () => void;
+  onGeaendert: () => void;
+}) {
   const [rechnung, setRechnung] = useState<Rechnung | null>(null);
   const [kunden, setKunden] = useState<Kunde[]>([]);
   const [ansicht, setAnsicht] = useState<"felder" | "vorschau">("felder");
@@ -327,6 +417,7 @@ function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (
   const [termin, setTermin] = useState("");
   const [monate, setMonate] = useState("");
   const [stand, setStand] = useState(0);
+  const [meldung, setMeldung] = useState("");
 
   async function laden() {
     const daten = await api<Rechnung>("/api/rechnungen/" + id);
@@ -340,6 +431,7 @@ function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (
   }
 
   useEffect(() => {
+    setMeldung("");
     laden().catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Rechnung fehlt."));
     api<Kunde[]>("/api/kunden").then(setKunden).catch(() => undefined);
   }, [id]);
@@ -379,12 +471,14 @@ function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (
       })),
     };
   }
-  async function speichern(): Promise<Rechnung> {
+  async function speichern(still = false): Promise<Rechnung> {
     const gespeichert = await api<Rechnung>("/api/rechnungen/" + id, { method: "PUT", body: JSON.stringify(payload()) });
     setRechnung({ ...gespeichert, positionen: mitLeer(gespeichert.positionen || []) });
+    setBetrag(gespeichert.brutto);
     setStand((wert) => wert + 1);
     onGeaendert();
     onFehler("");
+    if (!still) setMeldung("Rechnung gespeichert.");
     return gespeichert;
   }
   async function kundeWechseln(value: string) {
@@ -402,7 +496,7 @@ function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (
   }
   async function drucken() {
     try {
-      await speichern();
+      await speichern(true);
       let datumAufHeute = false;
       if (!rechnung!.rechnungs_nr) {
         const monat = new Intl.DateTimeFormat("de-DE", { month: "long" }).format(new Date()).toLowerCase();
@@ -412,49 +506,128 @@ function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (
       await pdfSpeichern("/api/rechnungen/" + id + "/drucken", { datum_auf_heute: datumAufHeute }, "Rechnung.pdf");
       await laden();
       onGeaendert();
+      setMeldung("PDF erstellt.");
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Druck fehlgeschlagen.");
     }
   }
-  async function aktion(pfad: string, body?: unknown) {
+  async function aktion(pfad: string, body?: unknown, erfolgText = "") {
     try {
       if (body === undefined) await api(pfad, { method: "POST" });
       else await api(pfad, { method: "POST", body: JSON.stringify(body) });
       await laden();
       onGeaendert();
+      onFehler("");
+      if (erfolgText) setMeldung(erfolgText);
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Aktion fehlgeschlagen.");
     }
   }
 
+  const status = statusText(rechnung);
+  const hatNummer = Boolean(rechnung.rechnungs_nr);
+  const istOffen = hatNummer && !rechnung.archiv && cent(rechnung.bezahlt) < cent(rechnung.brutto);
+
   return (
-    <div>
-      <div className="actions">
-        <button type="button" className={ansicht === "felder" ? "" : "secondary"} onClick={() => setAnsicht("felder")}>Felder</button>
-        <button type="button" className={ansicht === "vorschau" ? "" : "secondary"} onClick={() => setAnsicht("vorschau")}>Vorschau</button>
-        <button type="button" onClick={() => speichern().catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen."))}>Speichern</button>
-        <button type="button" onClick={() => void drucken()}>Drucken</button>
-        <button type="button" className="secondary" onClick={() => pdfSpeichern("/api/rechnungen/" + id + "/mahnung", {}, "Mahnung.pdf").catch((exc) => onFehler(exc instanceof Error ? exc.message : "Mahnung fehlgeschlagen."))}>Mahnung</button>
-        <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/senden", { art: "rechnung" })}>Rechnung mailen</button>
-        <button type="button" className="secondary" onClick={async () => {
-          if (!window.confirm("Soll die Rechnung storniert werden?")) return;
-          try {
-            const neu = await api<Rechnung>("/api/rechnungen/" + id + "/storno", { method: "POST" });
-            gehe("/rechnungen/" + neu.rechnungs_id);
-          } catch (exc) {
-            onFehler(exc instanceof ApiFehler ? exc.message : "Storno fehlgeschlagen.");
-          }
-        }}>Storno</button>
-        <button type="button" className="secondary" onClick={async () => {
-          try {
-            const neu = await api<Rechnung>("/api/rechnungen/" + id + "/kopie", { method: "POST" });
-            gehe("/rechnungen/" + neu.rechnungs_id);
-          } catch (exc) {
-            onFehler(exc instanceof ApiFehler ? exc.message : "Kopie fehlgeschlagen.");
-          }
-        }}>Kopie</button>
+    <div className="detail-inhalt">
+      <div className="mobil-zurueck-leiste">
+        <LinkIntern href="/rechnungen" className="button secondary kompakt-knopf">← Rechnungen</LinkIntern>
+        <div className="actions" style={{ margin: 0 }}>
+          {vorigeId && <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/rechnungen/" + vorigeId)} title="Vorige Rechnung">‹</button>}
+          {naechsteId && <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/rechnungen/" + naechsteId)} title="Nächste Rechnung">›</button>}
+        </div>
       </div>
-      <p>{nummerText(rechnung)} · Netto {geld(rechnung.netto)} · Brutto {geld(rechnung.brutto)}</p>
+
+      <div className="detail-kopf">
+        <div>
+          <div className="detail-titel-zeile">
+            <h2>{rechnung.rechnungs_nr ? `Rechnung ${rechnung.rechnungs_nr}` : "Rechnungsentwurf"}</h2>
+            <span className={`status-badge ${status.ton}`}>{status.label}</span>
+            {rechnung.datev_gesendet && <span className="status-badge gedaempft">StB {datumDE(rechnung.datev_gesendet)}</span>}
+          </div>
+          <p className="hinweis detail-untertitel">
+            {rechnung.name1 || "Kein Kunde gewählt"} · Netto {geld(rechnung.netto)} · <strong>Brutto {geld(rechnung.brutto)}</strong>
+          </p>
+        </div>
+      </div>
+
+      <div className="reiter kompakt-reiter" role="tablist" aria-label="Editor-Ansicht">
+        <button type="button" role="tab" aria-selected={ansicht === "felder"} className={ansicht === "felder" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setAnsicht("felder")}>
+          Felder bearbeiten
+        </button>
+        <button type="button" role="tab" aria-selected={ansicht === "vorschau"} className={ansicht === "vorschau" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setAnsicht("vorschau")}>
+          PDF-Vorschau
+        </button>
+      </div>
+
+      <div className="werkzeug-leiste">
+        <div className="haupt-aktionen">
+          <button type="button" onClick={() => speichern().catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen."))}>
+            Speichern
+          </button>
+          <button type="button" className={hatNummer ? "secondary" : ""} onClick={() => void drucken()}>
+            {hatNummer ? "PDF laden" : "Nummer & PDF"}
+          </button>
+          {hatNummer && (
+            <button
+              type="button"
+              className="secondary nur-desktop-inline"
+              onClick={() => void aktion("/api/rechnungen/" + id + "/senden", { art: "rechnung" }, "Rechnung per E-Mail gesendet.")}
+            >
+              Per E-Mail senden
+            </button>
+          )}
+        </div>
+        <details className="mehr-menue">
+          <summary className="button secondary">Weitere Aktionen ▾</summary>
+          <div className="mehr-liste" onClick={(event) => { const d = event.currentTarget.closest("details"); if (d) d.open = false; }}>
+            {hatNummer && (
+              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/senden", { art: "rechnung" }, "Rechnung per E-Mail gesendet.")}>
+                Per E-Mail an Kunden senden
+              </button>
+            )}
+            {istOffen && (
+              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/zahlung", { betrag: rechnung.brutto, datum: heuteISO() }, "Als bezahlt markiert.")}>
+                Als bezahlt markieren ({geld(rechnung.brutto)})
+              </button>
+            )}
+            {hatNummer && (
+              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/datev", undefined, "An DATEV gesendet.")}>
+                An DATEV senden
+              </button>
+            )}
+            <button type="button" onClick={async () => {
+              try {
+                const neu = await api<Rechnung>("/api/rechnungen/" + id + "/kopie", { method: "POST" });
+                gehe("/rechnungen/" + neu.rechnungs_id);
+              } catch (exc) {
+                onFehler(exc instanceof ApiFehler ? exc.message : "Kopie fehlgeschlagen.");
+              }
+            }}>Als neuen Entwurf kopieren</button>
+            {hatNummer && (
+              <button type="button" onClick={() => pdfSpeichern("/api/rechnungen/" + id + "/mahnung", {}, "Mahnung.pdf").catch((exc) => onFehler(exc instanceof Error ? exc.message : "Mahnung fehlgeschlagen."))}>
+                Mahnung als PDF laden
+              </button>
+            )}
+            {hatNummer && (
+              <button type="button" onClick={async () => {
+                if (!window.confirm("Soll die Rechnung storniert werden?")) return;
+                try {
+                  const neu = await api<Rechnung>("/api/rechnungen/" + id + "/storno", { method: "POST" });
+                  gehe("/rechnungen/" + neu.rechnungs_id);
+                } catch (exc) {
+                  onFehler(exc instanceof ApiFehler ? exc.message : "Storno fehlgeschlagen.");
+                }
+              }}>Stornorechnung erstellen</button>
+            )}
+            <hr />
+            <button type="button" className="menue-gefahr" onClick={onLoeschen}>Rechnung löschen</button>
+          </div>
+        </details>
+      </div>
+
+      {meldung && <p className="erfolg-hinweis" role="status">{meldung}</p>}
+
       {ansicht === "vorschau" ? (
         <div className="vorschau-box">
           <PdfVorschau url={"/api/rechnungen/" + id + "/vorschau?stand=" + stand} titel="Rechnung" />
@@ -466,71 +639,140 @@ function RechnungEditor({ id, onFehler, onGeaendert }: { id: number; onFehler: (
           <div className="form-gruppen">
             <fieldset className="block anschrift">
               <legend>Anschrift</legend>
-              <label>Kunde
+              <label>Kunde auswählen
                 <select value={rechnung.kunde_id || ""} onChange={(event) => void kundeWechseln(event.target.value)}>
-                  <option value="">kein Kunde</option>
+                  <option value="">— kein Stammkunde —</option>
                   {kunden.map((kunde) => <option key={kunde.kunden_id} value={kunde.kunden_id}>{kunde.name1}</option>)}
                 </select>
               </label>
-              <label>Name1:<input value={rechnung.name1} onChange={(event) => setKopf("name1", event.target.value)} /></label>
-              <label>Name2:<input value={rechnung.name2} onChange={(event) => setKopf("name2", event.target.value)} /></label>
-              <label>Name3:<input value={rechnung.name3} onChange={(event) => setKopf("name3", event.target.value)} /></label>
-              <label>Strasse:<input value={rechnung.strasse} onChange={(event) => setKopf("strasse", event.target.value)} /></label>
+              <label>Name 1<input value={rechnung.name1} onChange={(event) => setKopf("name1", event.target.value)} /></label>
+              <label>Name 2<input value={rechnung.name2} onChange={(event) => setKopf("name2", event.target.value)} /></label>
+              <label>Name 3<input value={rechnung.name3} onChange={(event) => setKopf("name3", event.target.value)} /></label>
+              <label>Straße & Hausnummer<input value={rechnung.strasse} onChange={(event) => setKopf("strasse", event.target.value)} /></label>
               <div className="plz-ort">
-                <label>PLZ:<input value={rechnung.plz} onChange={(event) => setKopf("plz", event.target.value)} /></label>
-                <label>Ort:<input value={rechnung.ort} onChange={(event) => setKopf("ort", event.target.value)} /></label>
+                <label>PLZ<input value={rechnung.plz} onChange={(event) => setKopf("plz", event.target.value)} /></label>
+                <label>Ort<input value={rechnung.ort} onChange={(event) => setKopf("ort", event.target.value)} /></label>
               </div>
             </fieldset>
-            <fieldset className="block">
-              <legend>Rechnung</legend>
-              <label>Datum<input type="date" value={rechnung.datum} onChange={(event) => setKopf("datum", event.target.value)} /></label>
-              <label>Leistungszeitraum<input value={rechnung.leistungszeitraum} onChange={(event) => setKopf("leistungszeitraum", event.target.value)} /></label>
-              <label className="check"><input type="checkbox" checked={rechnung.archiv} onChange={(event) => setKopf("archiv", event.target.checked)} /> Archiv</label>
-            </fieldset>
-            <fieldset className="block">
-              <legend>Steuer</legend>
-              <label className="check"><input type="checkbox" checked={rechnung.keine_mehrwertsteuer} onChange={(event) => setKopf("keine_mehrwertsteuer", event.target.checked)} /> Keine Mehrwertsteuer</label>
-              <label>Umsatzsteuer ID:<input value={rechnung.umsatzsteuer_id} onChange={(event) => setKopf("umsatzsteuer_id", event.target.value)} /></label>
-            </fieldset>
-          </div>
-          <div className="card">
-            <h3>Wiedervorlage</h3>
-            <div className="row">
-              <label>WiedervorlageTermin<input type="date" value={termin} onChange={(event) => setTermin(event.target.value)} /></label>
-              <label>WiederholungMonate<input value={monate} onChange={(event) => setMonate(event.target.value)} placeholder="leer = einmalig" /></label>
-              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/wiedervorlage", { termin: termin || null, monate: monate ? Number(monate) : null })}>Wiedervorlage speichern</button>
+            <div className="optionen-stapel">
+              <fieldset className="block">
+                <legend>Rechnungsdaten</legend>
+                <label>Rechnungsdatum<input type="date" value={rechnung.datum} onChange={(event) => setKopf("datum", event.target.value)} /></label>
+                <label>Leistungszeitraum<input value={rechnung.leistungszeitraum} placeholder="z. B. November 2026" onChange={(event) => setKopf("leistungszeitraum", event.target.value)} /></label>
+                <label className="check" style={{ marginTop: "0.5rem" }}><input type="checkbox" checked={rechnung.archiv} onChange={(event) => setKopf("archiv", event.target.checked)} /> Im Archiv ablegen</label>
+              </fieldset>
+              <fieldset className="block">
+                <legend>Steuer</legend>
+                <label className="check"><input type="checkbox" checked={rechnung.keine_mehrwertsteuer} onChange={(event) => setKopf("keine_mehrwertsteuer", event.target.checked)} /> Keine Mehrwertsteuer berechnen</label>
+                <label>Umsatzsteuer-ID<input value={rechnung.umsatzsteuer_id} placeholder="z. B. DE123456789" onChange={(event) => setKopf("umsatzsteuer_id", event.target.value)} /></label>
+              </fieldset>
             </div>
           </div>
-          {(rechnung.notizen_intern || "").trim() && (
-            <label>Notizen intern<textarea value={rechnung.notizen_intern || ""} onChange={(event) => setKopf("notizen_intern", event.target.value)} /></label>
-          )}
-          <h3>Positionen</h3>
+
+          <div className="abschnitt-kopf">
+            <h3>Positionen</h3>
+            <button
+              type="button"
+              className="secondary kompakt-knopf"
+              onClick={() => setRechnung({ ...rechnung, positionen: [...(rechnung.positionen || []), leerPos((rechnung.positionen || []).length)] })}
+            >
+              + Position
+            </button>
+          </div>
           <table className="pos">
-            <thead><tr><th>Menge</th><th>Einheit</th><th>Bezeichnung</th><th>Preis</th><th>n. Preis</th><th>n. Menge</th><th>einmalig</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th style={{ width: "4.5rem" }}>Menge</th>
+                <th style={{ width: "5rem" }}>Einheit</th>
+                <th>Bezeichnung & Beschreibung</th>
+                <th style={{ width: "6.5rem" }}>Einzelpreis</th>
+                <th style={{ width: "5.5rem" }}>n. Preis</th>
+                <th style={{ width: "5rem" }}>n. Menge</th>
+                <th style={{ width: "4.5rem" }}>einmalig</th>
+                <th style={{ width: "2.8rem" }} />
+              </tr>
+            </thead>
             <tbody>
               {(rechnung.positionen || []).map((position, index) => (
                 <tr key={position.positionen_id || "neu-" + index}>
-                  <td><input data-pos={index} data-feld="menge" value={position.menge} onFocus={fokus} onKeyDown={(event) => taste(event, index, "menge")} onChange={(event) => setPos(index, "menge", event.target.value)} /></td>
-                  <td><input data-pos={index} data-feld="einheit" value={position.mengeneinheit} onFocus={fokus} onKeyDown={(event) => taste(event, index, "einheit")} onChange={(event) => setPos(index, "mengeneinheit", event.target.value)} /></td>
-                  <td>
-                    <input data-pos={index} data-feld="bezeichnung" value={position.bezeichnung} onFocus={fokus} onKeyDown={(event) => taste(event, index, "bezeichnung")} onChange={(event) => setPos(index, "bezeichnung", event.target.value)} />
-                    <textarea tabIndex={-1} value={position.freitext} placeholder="Beschreibung" onChange={(event) => setPos(index, "freitext", event.target.value)} />
+                  <td data-label="Menge">
+                    <input inputMode="decimal" data-pos={index} data-feld="menge" value={position.menge} onFocus={fokus} onKeyDown={(event) => taste(event, index, "menge")} onChange={(event) => setPos(index, "menge", event.target.value)} />
                   </td>
-                  <td><input data-pos={index} data-feld="preis" value={position.preis} onFocus={fokus} onKeyDown={(event) => taste(event, index, "preis")} onChange={(event) => setPos(index, "preis", event.target.value)} /></td>
-                  <td><input data-pos={index} data-feld="npreis" value={position.naechster_preis || ""} onFocus={fokus} onKeyDown={(event) => taste(event, index, "npreis")} onChange={(event) => setPos(index, "naechster_preis", event.target.value || null)} /></td>
-                  <td><input data-pos={index} data-feld="nmenge" value={position.naechste_menge || ""} onFocus={fokus} onKeyDown={(event) => taste(event, index, "nmenge")} onChange={(event) => setPos(index, "naechste_menge", event.target.value || null)} /></td>
-                  <td><input data-pos={index} data-feld="einmalig" type="checkbox" checked={position.einmalig} onKeyDown={(event) => taste(event, index, "einmalig")} onChange={(event) => setPos(index, "einmalig", event.target.checked)} /></td>
-                  <td>{!istLeer(position) && <button type="button" className="danger" onClick={() => setRechnung({ ...rechnung, positionen: mitLeer((rechnung.positionen || []).filter((_, item) => item !== index)) })}>×</button>}</td>
+                  <td data-label="Einheit">
+                    <input data-pos={index} data-feld="einheit" placeholder="Std." value={position.mengeneinheit} onFocus={fokus} onKeyDown={(event) => taste(event, index, "einheit")} onChange={(event) => setPos(index, "mengeneinheit", event.target.value)} />
+                  </td>
+                  <td data-label="Bezeichnung" className="pos-bezeichnung">
+                    <input data-pos={index} data-feld="bezeichnung" placeholder="Leistungsbezeichnung" value={position.bezeichnung} onFocus={fokus} onKeyDown={(event) => taste(event, index, "bezeichnung")} onChange={(event) => setPos(index, "bezeichnung", event.target.value)} />
+                    <textarea tabIndex={-1} value={position.freitext} placeholder="Optionale Zusatzbeschreibung" onChange={(event) => setPos(index, "freitext", event.target.value)} />
+                  </td>
+                  <td data-label="Einzelpreis (€)">
+                    <input inputMode="decimal" data-pos={index} data-feld="preis" value={position.preis} onFocus={fokus} onKeyDown={(event) => taste(event, index, "preis")} onChange={(event) => setPos(index, "preis", event.target.value)} />
+                  </td>
+                  <td data-label="Nächster Preis">
+                    <input inputMode="decimal" data-pos={index} data-feld="npreis" placeholder="—" value={position.naechster_preis || ""} onFocus={fokus} onKeyDown={(event) => taste(event, index, "npreis")} onChange={(event) => setPos(index, "naechster_preis", event.target.value || null)} />
+                  </td>
+                  <td data-label="Nächste Menge">
+                    <input inputMode="decimal" data-pos={index} data-feld="nmenge" placeholder="—" value={position.naechste_menge || ""} onFocus={fokus} onKeyDown={(event) => taste(event, index, "nmenge")} onChange={(event) => setPos(index, "naechste_menge", event.target.value || null)} />
+                  </td>
+                  <td data-label="Einmalig" className="pos-check-zelle">
+                    <input data-pos={index} data-feld="einmalig" type="checkbox" checked={position.einmalig} onKeyDown={(event) => taste(event, index, "einmalig")} onChange={(event) => setPos(index, "einmalig", event.target.checked)} />
+                  </td>
+                  <td className="pos-entfernen-zelle">
+                    {!istLeer(position) && (
+                      <button
+                        type="button"
+                        className="danger kompakt-knopf"
+                        title="Position entfernen"
+                        aria-label="Position entfernen"
+                        onClick={() => setRechnung({ ...rechnung, positionen: mitLeer((rechnung.positionen || []).filter((_, item) => item !== index)) })}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div className="card">
-            <h3>Zahlung</h3>
-            <div className="row">
-              <label>Betrag<input value={betrag} onChange={(event) => setBetrag(event.target.value)} /></label>
-              <label>Bezahlt am<input type="date" value={bezahltAm} onChange={(event) => setBezahltAm(event.target.value)} /></label>
-              <button type="button" onClick={() => void aktion("/api/rechnungen/" + id + "/zahlung", { betrag, datum: bezahltAm })}>Zahlung speichern</button>
+
+          <div className="actions" style={{ marginTop: "0.75rem", marginBottom: "1rem" }}>
+            <button type="button" onClick={() => speichern().catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen."))}>
+              Rechnung speichern
+            </button>
+            <button type="button" className="secondary" onClick={() => { void speichern(true).then(() => setAnsicht("vorschau")).catch((exc) => onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen.")); }}>
+              Speichern & Vorschau
+            </button>
+          </div>
+
+          {(rechnung.notizen_intern || "").trim() && (
+            <label style={{ marginBottom: "0.8rem" }}>Interne Notizen<textarea value={rechnung.notizen_intern || ""} onChange={(event) => setKopf("notizen_intern", event.target.value)} /></label>
+          )}
+
+          <div className="form-gruppen">
+            <div className="card" style={{ marginBottom: 0 }}>
+              <h3 style={{ marginTop: 0 }}>Zahlungseingang</h3>
+              <div className="row">
+                <label style={{ flex: 1, minWidth: "7rem" }}>Betrag (€)<input inputMode="decimal" value={betrag} onChange={(event) => setBetrag(event.target.value)} /></label>
+                <label style={{ flex: 1, minWidth: "9rem" }}>Bezahlt am<input type="date" value={bezahltAm} onChange={(event) => setBezahltAm(event.target.value)} /></label>
+              </div>
+              <div className="actions" style={{ marginBottom: 0 }}>
+                <button type="button" className="secondary" onClick={() => void aktion("/api/rechnungen/" + id + "/zahlung", { betrag, datum: bezahltAm }, "Zahlung gespeichert.")}>
+                  Zahlung speichern
+                </button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 0 }}>
+              <h3 style={{ marginTop: 0 }}>Serienlauf / Wiedervorlage</h3>
+              <div className="row">
+                <label style={{ flex: 1, minWidth: "9rem" }}>Nächster Termin<input type="date" value={termin} onChange={(event) => setTermin(event.target.value)} /></label>
+                <label style={{ flex: 1, minWidth: "7rem" }}>Intervall (Monate)<input inputMode="numeric" value={monate} onChange={(event) => setMonate(event.target.value)} placeholder="leer = einmalig" /></label>
+              </div>
+              <div className="actions" style={{ marginBottom: 0 }}>
+                <button type="button" className="secondary" onClick={() => void aktion("/api/rechnungen/" + id + "/wiedervorlage", { termin: termin || null, monate: monate ? Number(monate) : null }, "Wiedervorlage gespeichert.")}>
+                  Wiedervorlage speichern
+                </button>
+              </div>
             </div>
           </div>
         </>

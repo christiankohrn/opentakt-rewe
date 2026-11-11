@@ -21,7 +21,7 @@ export function useKategorien(): Kategorie[] {
 export function KontoFilter({ wert, onChange }: { wert: string; onChange: (wert: string) => void }) {
   const kategorien = useKategorien();
   return (
-    <div className="actions">
+    <div className="chip-leiste" role="group" aria-label="Konto filtern">
       <button type="button" className={wert === "" ? "" : "secondary"} onClick={() => onChange("")}>Alle</button>
       {kategorien.map((konto) => (
         <button key={konto.schluessel} type="button" className={wert === konto.schluessel ? "" : "secondary"} onClick={() => onChange(konto.schluessel)}>

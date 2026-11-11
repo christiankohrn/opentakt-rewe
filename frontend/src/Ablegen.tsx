@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ApiFehler, betragEingabe, dateiSenden, hatExterneDateien } from "./api";
+import { IconUpload } from "./icons";
 import { useKategorien } from "./konten";
 import { LokaleDateiVorschau } from "./vorschau";
 
@@ -12,6 +13,8 @@ type Erkannt = {
   datum: string;
   rechnungsnummer: string;
 };
+
+const DATEI_ACCEPT = "image/*,application/pdf,.csv,.xml,.sta,.mt940,.txt";
 
 export function AblegenModal({
   warteschlange,
@@ -138,19 +141,26 @@ export function AblegenModal({
 
   const modal = (
     <div className="fenster-grund" onDragOver={(event) => event.preventDefault()} onDrop={fallen}>
-      <div className="fenster fenster-breit" role="dialog" aria-label="Ablegen" tabIndex={-1} ref={dialog} onPaste={einfuegen}>
+      <div className="fenster fenster-breit" role="dialog" aria-label="Dokument importieren" tabIndex={-1} ref={dialog} onPaste={einfuegen}>
         <div className="ablage-split">
           <div className="ablage-links">
-            <div className="vorschau-kopf">
-              <h2>Ablegen</h2>
-              {gesamt > 1 && <span className="hinweis">Datei {aktuellNr} von {gesamt} ({warteschlange.length} offen)</span>}
+            <div className="liste-werkzeug">
+              <div>
+                <h2 style={{ margin: 0 }}>Dokument importieren</h2>
+                {gesamt > 1 && <span className="hinweis">Datei {aktuellNr} von {gesamt} ({warteschlange.length} offen)</span>}
+              </div>
+              <button type="button" className="secondary kompakt-knopf" onClick={onSchliessen} aria-label="Schließen">Schließen</button>
             </div>
-            <p className="hinweis">{datei.name}</p>
-            <div className="actions">
-              <button type="button" className={art === "abrechnung" ? "" : "secondary"} onClick={() => setArt("abrechnung")}>Kontoauszug</button>
-              <button type="button" className={art === "beleg" ? "" : "secondary"} onClick={() => { setArt("beleg"); void erkennen(datei); }}>Beleg</button>
+            <p className="hinweis dateiname-zeile">{datei.name}</p>
+            <div className="reiter kompakt-reiter" role="tablist" aria-label="Dokumentart">
+              <button type="button" role="tab" aria-selected={art === "beleg"} className={art === "beleg" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => { setArt("beleg"); void erkennen(datei); }}>
+                Beleg / Rechnung
+              </button>
+              <button type="button" role="tab" aria-selected={art === "abrechnung"} className={art === "abrechnung" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setArt("abrechnung")}>
+                Kontoauszug
+              </button>
             </div>
-            <div className="actions">
+            <div className="chip-leiste" aria-label="Konto / Kategorie">
               {kategorien.map((konto) => (
                 <button key={konto.schluessel} type="button" className={quelle === konto.schluessel ? "" : "secondary"} onClick={() => setQuelle(konto.schluessel)}>
                   {konto.name}
@@ -158,24 +168,25 @@ export function AblegenModal({
               ))}
             </div>
             {art === "beleg" && (
-              <div className="grid">
+              <div className="grid" style={{ marginTop: "0.5rem" }}>
                 <label>Geschäftspartner<input value={partner} onChange={(event) => setPartner(event.target.value)} /></label>
                 <label>Betrag<input inputMode="decimal" placeholder="0,00" value={betrag} onChange={(event) => setBetrag(event.target.value)} /></label>
                 <label>Datum<input type="date" value={datum} onChange={(event) => setDatum(event.target.value)} /></label>
                 <label>Rechnungsnummer<input value={nummer} onChange={(event) => setNummer(event.target.value)} /></label>
-                <button type="button" className="secondary" disabled={laedt} onClick={() => void verfeinern()}>Mit KI verfeinern</button>
               </div>
             )}
-            <div className="actions">
+            <div className="actions" style={{ marginTop: "0.8rem" }}>
               <button type="button" disabled={!datei || !quelle || laedt} onClick={() => void speichern()}>
-                {hatWeitere ? `Importieren & weiter (${warteschlange.length - 1} weitere)` : "Importieren"}
+                {hatWeitere ? `Importieren & weiter (${warteschlange.length - 1})` : "Importieren"}
               </button>
+              {art === "beleg" && (
+                <button type="button" className="secondary" disabled={laedt} onClick={() => void verfeinern()}>Mit KI verfeinern</button>
+              )}
               {hatWeitere && (
                 <button type="button" className="secondary" disabled={laedt} onClick={onUeberspringen}>
                   Überspringen
                 </button>
               )}
-              <button type="button" className="secondary" onClick={onSchliessen}>Abbrechen</button>
             </div>
           </div>
           <div className="ablage-vorschau">
@@ -189,10 +200,9 @@ export function AblegenModal({
   return createPortal(modal, document.body);
 }
 
-export function Ablegen({ onFehler }: { onFehler: (text: string) => void }) {
+function useDateiWarteschlange() {
   const [warteschlange, setWarteschlange] = useState<File[]>([]);
   const [gesamt, setGesamt] = useState(0);
-  const dateiInput = useRef<HTMLInputElement>(null);
 
   function dazu(dateien: File[]) {
     if (!dateien.length) return;
@@ -202,6 +212,88 @@ export function Ablegen({ onFehler }: { onFehler: (text: string) => void }) {
       return neu;
     });
   }
+
+  function weiter({ beleg_id, art, rest }: { beleg_id: number; art: "beleg" | "abrechnung"; rest: number }) {
+    setWarteschlange((bisher) => bisher.slice(1));
+    window.dispatchEvent(new CustomEvent("buchhaltung:belege-aktualisiert", { detail: { beleg_id, art } }));
+    if (rest <= 0) setGesamt(0);
+  }
+
+  function ueberspringen() {
+    setWarteschlange((bisher) => {
+      const rest = bisher.slice(1);
+      if (!rest.length) setGesamt(0);
+      return rest;
+    });
+  }
+
+  function schliessen() {
+    setWarteschlange([]);
+    setGesamt(0);
+  }
+
+  return { warteschlange, gesamt, dazu, weiter, ueberspringen, schliessen };
+}
+
+export function DateiImportKnopf({
+  onFehler,
+  className = "secondary",
+  title = "Datei importieren",
+  children,
+}: {
+  onFehler: (text: string) => void;
+  className?: string;
+  title?: string;
+  children?: ReactNode;
+}) {
+  const { warteschlange, gesamt, dazu, weiter, ueberspringen, schliessen } = useDateiWarteschlange();
+  const dateiInput = useRef<HTMLInputElement>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        className={className}
+        title={title}
+        aria-label={title}
+        onClick={() => dateiInput.current?.click()}
+      >
+        {children ?? (
+          <>
+            <IconUpload className="knopf-icon" />
+            Datei importieren
+          </>
+        )}
+      </button>
+      <input
+        ref={dateiInput}
+        type="file"
+        multiple
+        accept={DATEI_ACCEPT}
+        style={{ display: "none" }}
+        onChange={(event) => {
+          if (event.target.files?.length) dazu([...event.target.files]);
+          event.target.value = "";
+        }}
+      />
+      {warteschlange.length > 0 && (
+        <AblegenModal
+          warteschlange={warteschlange}
+          gesamt={gesamt}
+          onDropDateien={dazu}
+          onFehler={onFehler}
+          onWeiter={weiter}
+          onUeberspringen={ueberspringen}
+          onSchliessen={schliessen}
+        />
+      )}
+    </>
+  );
+}
+
+export function Ablegen({ onFehler }: { onFehler: (text: string) => void }) {
+  const { warteschlange, gesamt, dazu, weiter, ueberspringen, schliessen } = useDateiWarteschlange();
+  const dateiInput = useRef<HTMLInputElement>(null);
 
   function fallen(event: DragEvent) {
     event.preventDefault();
@@ -224,19 +316,27 @@ export function Ablegen({ onFehler }: { onFehler: (text: string) => void }) {
     <>
       <div
         className="ablage-nav"
+        role="button"
         tabIndex={0}
         onClick={() => dateiInput.current?.click()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            dateiInput.current?.click();
+          }
+        }}
         onDragEnter={(event) => event.preventDefault()}
         onDragOver={(event) => event.preventDefault()}
         onDrop={fallen}
         onPaste={einfuegen}
       >
-        Dokumente ablegen
+        <IconUpload className="navi-icon" />
+        <span>Dokumente ablegen</span>
         <input
           ref={dateiInput}
           type="file"
           multiple
-          accept="image/*,application/pdf,.csv,.xml,.sta,.mt940,.txt"
+          accept={DATEI_ACCEPT}
           style={{ display: "none" }}
           onChange={(event) => {
             if (event.target.files?.length) dazu([...event.target.files]);
@@ -250,24 +350,9 @@ export function Ablegen({ onFehler }: { onFehler: (text: string) => void }) {
           gesamt={gesamt}
           onDropDateien={dazu}
           onFehler={onFehler}
-          onWeiter={({ beleg_id, art, rest }) => {
-            setWarteschlange((bisher) => bisher.slice(1));
-            window.dispatchEvent(new CustomEvent("buchhaltung:belege-aktualisiert", { detail: { beleg_id, art } }));
-            if (rest <= 0) {
-              setGesamt(0);
-            }
-          }}
-          onUeberspringen={() => {
-            setWarteschlange((bisher) => {
-              const rest = bisher.slice(1);
-              if (!rest.length) setGesamt(0);
-              return rest;
-            });
-          }}
-          onSchliessen={() => {
-            setWarteschlange([]);
-            setGesamt(0);
-          }}
+          onWeiter={weiter}
+          onUeberspringen={ueberspringen}
+          onSchliessen={schliessen}
         />
       )}
     </>

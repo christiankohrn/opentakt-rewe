@@ -20,25 +20,29 @@ export function PasswortVergessen() {
   }
 
   return (
-    <form className="login" onSubmit={senden}>
-      <h1>{PRODUCT_NAME}</h1>
-      {fertig ? (
-        <>
-          <p className="hinweis">Falls ein Konto existiert, ist eine E-Mail mit einem Link unterwegs (1 Stunde gültig).</p>
-          <p><LinkIntern href="/">Zurück zur Anmeldung</LinkIntern></p>
-        </>
-      ) : (
-        <>
-          <p className="hinweis">Benutzername oder E-Mail eingeben — es kommt ein Link zum Zurücksetzen.</p>
-          <label>Benutzername oder E-Mail
-            <input value={kennung} onChange={(event) => setKennung(event.target.value)} autoFocus autoComplete="username" />
-          </label>
-          {fehler && <p className="fehler">{fehler}</p>}
-          <p><button type="submit">Link anfordern</button></p>
-          <p><LinkIntern href="/">Zurück zur Anmeldung</LinkIntern></p>
-        </>
-      )}
-    </form>
+    <div className="login-seite">
+      <form className="login" onSubmit={senden}>
+        <h1>{PRODUCT_NAME}</h1>
+        {fertig ? (
+          <>
+            <p className="hinweis">Falls ein Konto existiert, ist eine E-Mail mit einem Link unterwegs (1 Stunde gültig).</p>
+            <div className="links"><LinkIntern href="/">Zurück zur Anmeldung</LinkIntern></div>
+          </>
+        ) : (
+          <>
+            <p className="hinweis">Benutzername oder E-Mail eingeben — es kommt ein Link zum Zurücksetzen.</p>
+            <label>Benutzername oder E-Mail
+              <input value={kennung} onChange={(event) => setKennung(event.target.value)} autoFocus autoComplete="username" />
+            </label>
+            {fehler && <p className="fehler">{fehler}</p>}
+            <div className="login-knöpfe">
+              <button type="submit">Link anfordern</button>
+            </div>
+            <div className="links"><LinkIntern href="/">Zurück zur Anmeldung</LinkIntern></div>
+          </>
+        )}
+      </form>
+    </div>
   );
 }
 
@@ -73,39 +77,43 @@ export function PasswortSetzen() {
     }
   }
 
-  if (info === undefined) return <main>Laden …</main>;
+  if (info === undefined) return <main className="lade-vollbild">Laden …</main>;
 
   return (
-    <form className="login" onSubmit={senden}>
-      <h1>{PRODUCT_NAME}</h1>
-      {info === null && (
-        <>
-          <p className="fehler">Link ist ungültig oder abgelaufen.</p>
-          <p><LinkIntern href="/">Zurück zur Anmeldung</LinkIntern></p>
-        </>
-      )}
-      {info !== null && fertig && (
-        <>
-          <p className="hinweis">Passwort gesetzt. Du kannst dich jetzt anmelden.</p>
-          <p><LinkIntern href="/">Zur Anmeldung</LinkIntern></p>
-        </>
-      )}
-      {info !== null && !fertig && (
-        <>
-          <p className="hinweis">
-            {info.zweck === "einladung" ? "Willkommen" : "Hallo"} {info.name || info.benutzername},
-            bitte vergib ein Passwort (mind. 8 Zeichen).
-          </p>
-          <label>Neues Passwort
-            <input type="password" value={passwort} onChange={(event) => setPasswort(event.target.value)} autoFocus autoComplete="new-password" />
-          </label>
-          <label>Neues Passwort wiederholen
-            <input type="password" value={wiederholung} onChange={(event) => setWiederholung(event.target.value)} autoComplete="new-password" />
-          </label>
-          {fehler && <p className="fehler">{fehler}</p>}
-          <p><button type="submit">Passwort speichern</button></p>
-        </>
-      )}
-    </form>
+    <div className="login-seite">
+      <form className="login" onSubmit={senden}>
+        <h1>{PRODUCT_NAME}</h1>
+        {info === null && (
+          <>
+            <p className="fehler">Link ist ungültig oder abgelaufen.</p>
+            <div className="links"><LinkIntern href="/">Zurück zur Anmeldung</LinkIntern></div>
+          </>
+        )}
+        {info !== null && fertig && (
+          <>
+            <p className="hinweis">Passwort gesetzt. Du kannst dich jetzt anmelden.</p>
+            <div className="links"><LinkIntern href="/">Zur Anmeldung</LinkIntern></div>
+          </>
+        )}
+        {info !== null && !fertig && (
+          <>
+            <p className="hinweis">
+              {info.zweck === "einladung" ? "Willkommen" : "Hallo"} {info.name || info.benutzername},
+              bitte vergib ein Passwort (mind. 8 Zeichen).
+            </p>
+            <label>Neues Passwort
+              <input type="password" value={passwort} onChange={(event) => setPasswort(event.target.value)} autoFocus autoComplete="new-password" />
+            </label>
+            <label>Neues Passwort wiederholen
+              <input type="password" value={wiederholung} onChange={(event) => setWiederholung(event.target.value)} autoComplete="new-password" />
+            </label>
+            {fehler && <p className="fehler">{fehler}</p>}
+            <div className="login-knöpfe">
+              <button type="submit">Passwort speichern</button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
   );
 }

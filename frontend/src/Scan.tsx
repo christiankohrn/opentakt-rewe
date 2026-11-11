@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ApiFehler, dateiSenden } from "./api";
 import { gehe } from "./nav";
 import {
@@ -10,7 +10,7 @@ import {
   jpegsZuPdf,
   perspektiveKorrigieren,
   type Viereck,
-} from "./scan";
+} from "./scanBild";
 
 type Seite = { id: number; jpeg: Blob; vorschau: string };
 
@@ -174,49 +174,51 @@ export function ScanSeite({ onFehler }: { onFehler: (text: string) => void }) {
     });
   }
 
+  const mass = bild ? Math.max(bild.naturalWidth, bild.naturalHeight) : 1000;
+
   return (
     <div className="scan-seite">
-      <h1>Scannen</h1>
+      <h1>Beleg scannen</h1>
+      <input
+        ref={kamera}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: "none" }}
+        onChange={(event) => {
+          void fotoNehmen(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <input
+        ref={auswahl}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(event) => {
+          void fotoNehmen(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
       {fertigId !== null && (
-        <p className="scan-fertig">
-          Scan als Beleg importiert.{" "}
-          <button type="button" className="secondary" onClick={() => gehe("/belege/" + fertigId)}>
+        <div className="scan-fertig">
+          <span>Scan als Beleg importiert.</span>
+          <button type="button" onClick={() => gehe("/belege/" + fertigId)}>
             In Belegbearbeitung öffnen
           </button>
-        </p>
+        </div>
       )}
       {!bild && (
         <div className="card">
-          <p className="hinweis">Beleg flach hinlegen, gerade von oben fotografieren. Die Umrisse werden automatisch gesucht.</p>
+          <p className="hinweis" style={{ marginTop: 0 }}>Beleg flach hinlegen und gerade von oben fotografieren. Die Ecken werden automatisch erkannt.</p>
           <div className="actions scan-knöpfe">
             <button type="button" onClick={() => kamera.current?.click()}>
-              Fotografieren
+              Kamera öffnen
             </button>
             <button type="button" className="secondary" onClick={() => auswahl.current?.click()}>
-              Bild wählen
+              Aus Fotos / Dateien wählen
             </button>
           </div>
-          <input
-            ref={kamera}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            style={{ display: "none" }}
-            onChange={(event) => {
-              void fotoNehmen(event.target.files?.[0]);
-              event.target.value = "";
-            }}
-          />
-          <input
-            ref={auswahl}
-            type="file"
-            accept="image/*"
-            style={{ display: "none" }}
-            onChange={(event) => {
-              void fotoNehmen(event.target.files?.[0]);
-              event.target.value = "";
-            }}
-          />
         </div>
       )}
       {arbeitet && (
@@ -226,7 +228,7 @@ export function ScanSeite({ onFehler }: { onFehler: (text: string) => void }) {
       )}
       {bild && ecken && (
         <div className="card">
-          <p className="hinweis">{selbstErkannt ? "Umriss erkannt — Ecken bei Bedarf an den Punkten nachziehen." : "Kein Umriss gefunden — Ecken an den Punkten selbst setzen."}</p>
+          <p className="hinweis" style={{ marginTop: 0 }}>{selbstErkannt ? "Umriss erkannt — Ecken bei Bedarf mit dem Finger nachziehen." : "Kein Umriss gefunden — Ecken bitte an den vier Punkten ausrichten."}</p>
           <div className="scan-rahmen">
             <img src={bildUrl} alt="Belegfoto" className="scan-foto" draggable={false} />
             <svg
@@ -240,17 +242,25 @@ export function ScanSeite({ onFehler }: { onFehler: (text: string) => void }) {
             >
               <polygon points={ecken.map((p) => `${p.x},${p.y}`).join(" ")} className="scan-polygon" />
               {ecken.map((p, i) => (
-                <circle
-                  key={i}
-                  cx={p.x}
-                  cy={p.y}
-                  r={Math.max(bild.naturalWidth, bild.naturalHeight) * 0.02}
-                  className="scan-punkt"
-                  onPointerDown={(event) => {
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    zugId.current = i;
-                  }}
-                />
+                <Fragment key={i}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={mass * 0.065}
+                    className="scan-punkt-treffer"
+                    onPointerDown={(event) => {
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      zugId.current = i;
+                    }}
+                  />
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={mass * 0.026}
+                    className="scan-punkt"
+                    pointerEvents="none"
+                  />
+                </Fragment>
               ))}
             </svg>
           </div>
@@ -269,25 +279,29 @@ export function ScanSeite({ onFehler }: { onFehler: (text: string) => void }) {
       )}
       {seiten.length > 0 && (
         <div className="card">
-          <h2>
-            Seiten ({seiten.length} {seiten.length === 1 ? "Seite" : "Seiten"})
+          <h2 style={{ marginTop: 0 }}>
+            Erfasste Seiten ({seiten.length})
           </h2>
           <div className="scan-seiten">
             {seiten.map((seite, index) => (
               <figure key={seite.id} className="scan-daumen">
-                    <img src={seite.vorschau} alt={`Seite ${index + 1}`} />
+                <img src={seite.vorschau} alt={`Seite ${index + 1}`} />
                 <figcaption>
-                  Seite {index + 1} <button type="button" className="secondary" onClick={() => seiteEntfernen(seite.id)}>Entfernen</button>
+                  <span>Seite {index + 1}</span>
+                  <button type="button" className="secondary kompakt-knopf" onClick={() => seiteEntfernen(seite.id)}>Entfernen</button>
                 </figcaption>
               </figure>
             ))}
           </div>
           <div className="actions scan-knöpfe">
-            <button type="button" disabled={Boolean(arbeitet)} onClick={() => kamera.current?.click()}>
-              Weitere Seite
+            <button type="button" disabled={Boolean(arbeitet)} onClick={() => void importieren()}>
+              {seiten.length === 1 ? "Als Beleg importieren" : `Als PDF (${seiten.length} Seiten) importieren`}
             </button>
-            <button type="button" className="secondary" disabled={Boolean(arbeitet)} onClick={() => void importieren()}>
-              {seiten.length === 1 ? "Als Beleg importieren" : `Als PDF mit ${seiten.length} Seiten importieren`}
+            <button type="button" className="secondary" disabled={Boolean(arbeitet)} onClick={() => kamera.current?.click()}>
+              + Weitere Seite fotografieren
+            </button>
+            <button type="button" className="secondary" disabled={Boolean(arbeitet)} onClick={() => auswahl.current?.click()}>
+              + Weiteres Bild wählen
             </button>
           </div>
         </div>

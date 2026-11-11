@@ -109,69 +109,105 @@ export function BenutzerSeite({ aktuell, onFehler }: { aktuell: Benutzer; onFehl
   const gewaehlt = liste.find((eintrag) => eintrag.benutzer_id === wahl) || null;
 
   return (
-    <div className="optionen-seite">
-      <header className="optionen-kopf">
-        <h1>Benutzer</h1>
-      </header>
-      {hinweis && <p className="hinweis">{hinweis}</p>}
+    <div className="optionen-stapel">
+      {hinweis && <p className="erfolg-hinweis" role="status">{hinweis}</p>}
       <div className="optionen-zwei">
         <div className="card">
-          <h2>Konten</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Benutzername</th>
-                <th>Name</th>
-                <th>Rolle</th>
-                <th>Quelle</th>
-                <th>2FA</th>
-                <th>Status</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {liste.map((benutzer) => (
-                <tr
-                  key={benutzer.benutzer_id}
-                  className={`click ${benutzer.benutzer_id === wahl ? "aktiv" : ""} ${benutzer.aktiv ? "" : "archiv"}`}
-                  onClick={() => auswaehlen(benutzer)}
-                >
-                  <td>
-                    <strong>{benutzer.benutzername}</strong>
-                    {benutzer.benutzer_id === aktuell.benutzer_id && <span className="hinweis"> (ich)</span>}
-                  </td>
-                  <td>{benutzer.name || "—"}</td>
-                  <td>{benutzer.rolle === "admin" ? "Admin" : "Benutzer"}</td>
-                  <td>{benutzer.auth_quelle === "ldap" ? "LDAP" : "Lokal"}</td>
-                  <td>
-                    {[
-                      benutzer.totp_aktiv ? "App" : null,
-                      (benutzer.passkey_anzahl || 0) > 0 ? `${benutzer.passkey_anzahl} Key${(benutzer.passkey_anzahl || 0) > 1 ? "s" : ""}` : null,
-                    ].filter(Boolean).join(" · ") || "—"}
-                  </td>
-                  <td>
-                    {!benutzer.aktiv ? "gesperrt" : benutzer.passwort_aendern ? "muss Passwort ändern" : "aktiv"}
-                  </td>
-                  <td>
-                    <div className="actions" style={{ margin: 0 }}>
-                      {benutzer.auth_quelle !== "ldap" && (
-                        <button type="button" className="secondary" onClick={(event) => { event.stopPropagation(); void einladungSenden(benutzer); }}>
-                          Einladung
-                        </button>
-                      )}
-                      <button type="button" className="danger" onClick={(event) => { event.stopPropagation(); void loeschen(benutzer); }}>
-                        Löschen
-                      </button>
-                    </div>
-                  </td>
+          <h2 style={{ marginTop: 0 }}>Benutzerkonten ({liste.length})</h2>
+          <p className="hinweis">Zeile antippen, um Namen, E-Mail, Rolle oder Passwort zu bearbeiten.</p>
+          <div className="tabelle-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Benutzername</th>
+                  <th>Name</th>
+                  <th>Rolle</th>
+                  <th>Quelle</th>
+                  <th>2FA</th>
+                  <th>Status</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {liste.map((benutzer) => (
+                  <tr
+                    key={benutzer.benutzer_id}
+                    className={`click ${benutzer.benutzer_id === wahl ? "aktiv" : ""} ${benutzer.aktiv ? "" : "archiv"}`}
+                    onClick={() => auswaehlen(benutzer)}
+                  >
+                    <td>
+                      <strong>{benutzer.benutzername}</strong>
+                      {benutzer.benutzer_id === aktuell.benutzer_id && <span className="hinweis"> (ich)</span>}
+                    </td>
+                    <td>{benutzer.name || "—"}</td>
+                    <td>{benutzer.rolle === "admin" ? "Admin" : "Benutzer"}</td>
+                    <td>{benutzer.auth_quelle === "ldap" ? "LDAP" : "Lokal"}</td>
+                    <td>
+                      {[
+                        benutzer.totp_aktiv ? "App" : null,
+                        (benutzer.passkey_anzahl || 0) > 0 ? `${benutzer.passkey_anzahl} Key${(benutzer.passkey_anzahl || 0) > 1 ? "s" : ""}` : null,
+                      ].filter(Boolean).join(" · ") || "—"}
+                    </td>
+                    <td>
+                      {!benutzer.aktiv ? "gesperrt" : benutzer.passwort_aendern ? "muss Passwort ändern" : "aktiv"}
+                    </td>
+                    <td>
+                      <div className="actions" style={{ margin: 0, flexWrap: "nowrap" }}>
+                        {benutzer.auth_quelle !== "ldap" && (
+                          <button type="button" className="secondary kompakt-knopf" onClick={(event) => { event.stopPropagation(); void einladungSenden(benutzer); }}>
+                            Einladung
+                          </button>
+                        )}
+                        <button type="button" className="danger kompakt-knopf" onClick={(event) => { event.stopPropagation(); void loeschen(benutzer); }}>
+                          Löschen
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
         <div className="optionen-stapel">
+          {gewaehlt && (
+            <form className="card" onSubmit={(event) => void speichern(event)}>
+              <div className="liste-werkzeug">
+                <h2 style={{ margin: 0 }}>{gewaehlt.benutzername} bearbeiten</h2>
+                <button type="button" className="secondary kompakt-knopf" onClick={() => setWahl(null)}>Schließen</button>
+              </div>
+              <div className="form-gruppen" style={{ marginTop: "0.6rem" }}>
+                <label>Name
+                  <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+                </label>
+                <label>E-Mail
+                  <input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+                </label>
+                <label>Rolle
+                  <select value={form.rolle} onChange={(event) => setForm({ ...form, rolle: event.target.value })}>
+                    <option value="benutzer">Benutzer</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
+                {gewaehlt.auth_quelle === "ldap" ? (
+                  <p className="hinweis">LDAP-Konto: Passwort wird im Verzeichnis geändert.</p>
+                ) : (
+                  <label>Neues Passwort (leer = unverändert)
+                    <input type="password" value={form.passwort} autoComplete="new-password" onChange={(event) => setForm({ ...form, passwort: event.target.value })} />
+                  </label>
+                )}
+              </div>
+              <div className="actions" style={{ marginTop: "0.8rem" }}>
+                <label className="check" style={{ marginRight: "1rem" }}>
+                  <input type="checkbox" checked={form.aktiv} onChange={(event) => setForm({ ...form, aktiv: event.target.checked })} />
+                  Aktiv
+                </label>
+                <button type="submit">Änderungen speichern</button>
+              </div>
+            </form>
+          )}
           <form className="card" onSubmit={(event) => void anlegen(event)}>
-            <h2>Neuer Benutzer</h2>
+            <h2 style={{ marginTop: 0 }}>Neuen Benutzer anlegen</h2>
             <div className="form-gruppen">
               <label>Benutzername
                 <input value={neu.benutzername} onChange={(event) => setNeu({ ...neu, benutzername: event.target.value })} required />
@@ -180,7 +216,7 @@ export function BenutzerSeite({ aktuell, onFehler }: { aktuell: Benutzer; onFehl
                 <input value={neu.name} onChange={(event) => setNeu({ ...neu, name: event.target.value })} />
               </label>
               <label>E-Mail
-                <input value={neu.email} onChange={(event) => setNeu({ ...neu, email: event.target.value })} />
+                <input type="email" value={neu.email} onChange={(event) => setNeu({ ...neu, email: event.target.value })} />
               </label>
               {!neu.einladung && (
                 <label>Startpasswort (mind. 8 Zeichen)
@@ -202,39 +238,6 @@ export function BenutzerSeite({ aktuell, onFehler }: { aktuell: Benutzer; onFehl
               <button type="submit">Benutzer anlegen</button>
             </div>
           </form>
-          {gewaehlt && (
-            <form className="card" onSubmit={(event) => void speichern(event)}>
-              <h2>{gewaehlt.benutzername} bearbeiten</h2>
-              <div className="form-gruppen">
-                <label>Name
-                  <input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
-                </label>
-                <label>E-Mail
-                  <input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
-                </label>
-                <label>Rolle
-                  <select value={form.rolle} onChange={(event) => setForm({ ...form, rolle: event.target.value })}>
-                    <option value="benutzer">Benutzer</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </label>
-                {gewaehlt.auth_quelle === "ldap" ? (
-                  <p className="hinweis">LDAP-Konto: Passwort wird im Verzeichnis geändert.</p>
-                ) : (
-                  <label>Neues Passwort (leer = unverändert)
-                    <input type="password" value={form.passwort} autoComplete="new-password" onChange={(event) => setForm({ ...form, passwort: event.target.value })} />
-                  </label>
-                )}
-              </div>
-              <div className="actions" style={{ marginTop: "0.8rem" }}>
-                <label className="check" style={{ marginRight: "1rem" }}>
-                  <input type="checkbox" checked={form.aktiv} onChange={(event) => setForm({ ...form, aktiv: event.target.checked })} />
-                  Aktiv
-                </label>
-                <button type="submit">Speichern</button>
-              </div>
-            </form>
-          )}
         </div>
       </div>
     </div>

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import benutzername_norm
 from app.config import get_settings
-from app.models import Benutzer
+from app.domain import RECHNUNGSNUMMER
+from app.models import Benutzer, Option
 from app.security import hash_password
 
 
@@ -32,6 +33,8 @@ def seed_if_empty(session: Session) -> Benutzer | None:
         )
     if len(passwort) < 8:
         raise ValueError("ADMIN_PASSWORT braucht mindestens 8 Zeichen.")
+    if session.get(Option, 1) is None:
+        session.add(Option(optionen_id=1, einstellung=RECHNUNGSNUMMER, e_int=0))
     admin = Benutzer(
         benutzername=benutzername,
         name="Administrator",

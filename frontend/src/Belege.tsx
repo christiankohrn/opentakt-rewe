@@ -1,9 +1,9 @@
 import { useEffect, useState, type DragEvent } from "react";
 import { ApiFehler, api, betragEingabe, datumDE, geld, hatExterneDateien } from "./api";
-import { AblegenModal } from "./Ablegen";
+import { AblegenModal, DateiImportKnopf } from "./Ablegen";
 import { KontoFilter, useKategorien } from "./konten";
 import { DatenListe, zeilenWahl, type Sortierung } from "./liste";
-import { gehe } from "./nav";
+import { LinkIntern, gehe } from "./nav";
 import { Teilung } from "./teilen";
 import { DateiLink, PdfVorschau } from "./vorschau";
 
@@ -77,6 +77,7 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
   const [nummer, setNummer] = useState("");
   const [belegKonto, setBelegKonto] = useState("");
   const [bearbeitung, setBearbeitung] = useState(false);
+  const [meldung, setMeldung] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number; ids: number[]; aktuell: string } | null>(null);
 
   async function laden(filter: string) {
@@ -98,6 +99,7 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
   }, [konto]);
 
   useEffect(() => {
+    setMeldung("");
     if (belegId && !liste.some((beleg) => beleg.beleg_id === belegId)) {
       void laden(konto);
     }
@@ -147,6 +149,7 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
         });
       }
       await laden(konto);
+      setMeldung(ids.length === 1 ? "Beleg an DATEV gesendet." : `${ids.length} Belege an DATEV gesendet.`);
       onFehler("");
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Versand an DATEV fehlgeschlagen.");
@@ -175,15 +178,18 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
     })
     : gefiltert;
 
-  async function loeschen() {
-    const ids = gewaehlt.length ? gewaehlt : belegId ? [belegId] : [];
+  async function loeschen(einzelId?: number) {
+    const ids = einzelId ? [einzelId] : gewaehlt.length ? gewaehlt : belegId ? [belegId] : [];
     if (!ids.length) return;
     const frage = ids.length === 1 ? "Soll dieser Beleg gelöscht werden?" : `Sollen ${ids.length} Belege gelöscht werden?`;
     if (!window.confirm(frage)) return;
     try {
       for (const id of ids) await api("/api/belege/" + id, { method: "DELETE" });
       setGewaehlt([]);
-      if (belegId && ids.includes(belegId)) gehe("/belege");
+      if (belegId && ids.includes(belegId)) {
+        setBearbeitung(false);
+        gehe("/belege");
+      }
       await laden(konto);
       onFehler("");
     } catch (exc) {
@@ -234,10 +240,14 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
         }),
       });
       await laden(konto);
+      onFehler("");
       if (weiter) {
         const index = sichtbar.findIndex((beleg) => beleg.beleg_id === aktiv.beleg_id);
         const naechster = sichtbar[index + 1];
         if (naechster) gehe("/belege/" + naechster.beleg_id);
+        else setMeldung("Beleg gespeichert (Ende der Liste).");
+      } else {
+        setMeldung("Beleg gespeichert.");
       }
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Speichern fehlgeschlagen.");
@@ -262,14 +272,36 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
     return kategorien.find((k) => k.schluessel === schluessel)?.name || schluessel;
   }
 
+  const aktivIndex = aktiv ? sichtbar.findIndex((b) => b.beleg_id === aktiv.beleg_id) : -1;
+  const vorigeId = aktivIndex > 0 ? sichtbar[aktivIndex - 1].beleg_id : null;
+  const naechsteId = aktivIndex >= 0 && aktivIndex + 1 < sichtbar.length ? sichtbar[aktivIndex + 1].beleg_id : null;
+  const hatDetail = Boolean(belegId && aktiv);
+
   const listePane = (
-    <div className="liste-spalte dicht">
-      <KontoFilter wert={konto} onChange={setKonto} />
-      <label>Suche<input value={suche} onChange={(event) => setSuche(event.target.value)} /></label>
-      <div className="actions">
-        <button type="button" className="secondary" onClick={() => { setSortierung(null); setAnker(-1); }}>Zurücksetzen</button>
-        <button type="button" className="danger" onClick={() => void loeschen()}>Löschen</button>
+    <div className="spalte liste-spalte dicht">
+      <div className="liste-werkzeug">
+        <DateiImportKnopf onFehler={onFehler} className="button" title="Beleg oder Abrechnung importieren" />
+        <div className="actions" style={{ margin: 0 }}>
+          {(suche.trim() || sortierung || konto) && (
+            <button type="button" className="secondary kompakt-knopf" onClick={() => { setSuche(""); setKonto(""); setSortierung(null); setAnker(-1); }}>
+              Filter leeren
+            </button>
+          )}
+          {gewaehlt.length > 1 && (
+            <button type="button" className="danger kompakt-knopf" onClick={() => void loeschen()}>
+              {gewaehlt.length} löschen
+            </button>
+          )}
+        </div>
       </div>
+      <KontoFilter wert={konto} onChange={setKonto} />
+      <input
+        aria-label="Belege suchen"
+        placeholder="Partner, Betrag, Rechnungsnr. oder Dateiname …"
+        value={suche}
+        onChange={(event) => setSuche(event.target.value)}
+        style={{ marginBottom: "0.45rem" }}
+      />
       <div className="liste-scroll">
         <DatenListe
           zeilen={sichtbar}
@@ -284,7 +316,7 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
             const ergebnis = zeilenWahl(event, index, ids, gewaehlt, anker);
             setGewaehlt(ergebnis.ids);
             setAnker(ergebnis.anker);
-            setBearbeitung(false);
+            if (window.innerWidth > 1024) setBearbeitung(false);
             gehe("/belege/" + ids[index]);
           }}
           onDoppel={(index) => {
@@ -301,13 +333,13 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
             setMenu({ x: event.clientX, y: event.clientY, ids: zielIds, aktuell: zeile.quelle });
           }}
           spalten={[
-            { key: "eingang", titel: "Eingangsdatum", zelle: (beleg) => datumDE(beleg.eingang) || "—" },
-            { key: "dateiname", titel: "Dateiname", zelle: (beleg) => beleg.dateiname },
-            { key: "konto", titel: "Kategorie", zelle: (beleg) => kontoName(beleg.quelle) },
+            { key: "eingang", titel: "Eingang", zelle: (beleg) => datumDE(beleg.eingang) || "—" },
+            { key: "partner", titel: "Geschäftspartner", zelle: (beleg) => beleg.partner || beleg.dateiname },
+            { key: "betrag", titel: "Betrag", zelle: (beleg) => beleg.betrag ? geld(beleg.betrag) : "—" },
             { key: "datum", titel: "Belegdatum", zelle: (beleg) => datumDE(beleg.datum) || "—" },
-            { key: "partner", titel: "Geschäftspartner", zelle: (beleg) => beleg.partner || "—" },
-            { key: "betrag", titel: "Rechnungsbetrag", zelle: (beleg) => beleg.betrag ? geld(beleg.betrag) : "—" },
+            { key: "konto", titel: "Konto", zelle: (beleg) => kontoName(beleg.quelle) },
             { key: "status", titel: "Status", zelle: (beleg) => beleg.datev_gesendet ? `StB ${datumDE(beleg.datev_gesendet)}` : beleg.bewegung_id ? "zugeordnet" : "offen" },
+            { key: "dateiname", titel: "Datei", zelle: (beleg) => beleg.dateiname },
           ]}
         />
       </div>
@@ -320,7 +352,7 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
             An DATEV senden ({kontoName(menu.aktuell)})
           </button>
           <div className="menu-titel">
-            Kategorie setzen
+            Konto / Kategorie setzen
           </div>
           {kategorien.map((kat) => (
             <button
@@ -337,54 +369,102 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
     </div>
   );
 
+  const belegSteuerung = aktiv && (
+    <div className="beleg-kopf-block">
+      <div className="mobil-zurueck-leiste">
+        <LinkIntern href="/belege" className="button secondary kompakt-knopf">← Alle Belege</LinkIntern>
+        <div className="actions" style={{ margin: 0 }}>
+          {vorigeId && <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/belege/" + vorigeId)} title="Voriger Beleg">‹</button>}
+          {naechsteId && <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/belege/" + naechsteId)} title="Nächster Beleg">›</button>}
+        </div>
+      </div>
+      <div className="detail-kopf">
+        <div style={{ minWidth: 0 }}>
+          <h2 className="dateiname-zeile">{aktiv.partner || aktiv.dateiname}</h2>
+          <p className="hinweis detail-untertitel">
+            {aktiv.betrag ? <strong>{geld(aktiv.betrag)}</strong> : "Kein Betrag"} · {datumDE(aktiv.datum) || "Kein Datum"} · {kontoName(aktiv.quelle)}
+            {aktiv.datev_gesendet ? ` · StB ${datumDE(aktiv.datev_gesendet)}` : ""}
+          </p>
+        </div>
+        <div className="haupt-aktionen">
+          <button type="button" className={bearbeitung ? "secondary" : ""} onClick={() => setBearbeitung(!bearbeitung)}>
+            {bearbeitung ? "Nur Vorschau" : "Bearbeiten"}
+          </button>
+          <button type="button" className="secondary" onClick={() => void belegeAnDatevSenden([aktiv.beleg_id], aktiv.quelle)}>
+            An DATEV
+          </button>
+          <button type="button" className="danger kompakt-knopf" onClick={() => void loeschen(aktiv.beleg_id)}>
+            Löschen
+          </button>
+        </div>
+      </div>
+      {meldung && <p className="erfolg-hinweis" role="status">{meldung}</p>}
+    </div>
+  );
+
   const felder = aktiv && (
     <div className="spalte beleg-felder">
-      <button type="button" className="secondary" onClick={() => setBearbeitung(false)}>Zur Liste</button>
-      <h2>{aktiv.dateiname}</h2>
-      <p className="hinweis">Belegtyp {aktiv.art} · Herkunft {kontoName(aktiv.quelle)}</p>
+      <div className="nur-desktop-flex liste-werkzeug" style={{ marginBottom: "0.5rem" }}>
+        <button type="button" className="secondary kompakt-knopf" onClick={() => setBearbeitung(false)}>← Zur Liste</button>
+        <div className="actions" style={{ margin: 0 }}>
+          {vorigeId && <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/belege/" + vorigeId)}>‹ Vorige</button>}
+          {naechsteId && <button type="button" className="secondary kompakt-knopf" onClick={() => gehe("/belege/" + naechsteId)}>Nächste ›</button>}
+        </div>
+      </div>
+      <div className="nur-desktop-block">
+        <h2 className="dateiname-zeile" style={{ marginTop: 0 }}>{aktiv.dateiname}</h2>
+        <p className="hinweis">Belegtyp {aktiv.art} · Konto {kontoName(aktiv.quelle)}</p>
+        {meldung && <p className="erfolg-hinweis" role="status">{meldung}</p>}
+      </div>
       <p className="hinweis">
         Texterkennung: {ocrText(aktiv.ocr_status || "")}{" "}
         {aktiv.ocr_status !== "text" && aktiv.ocr_status !== "ocr" && (
-          <button type="button" className="secondary" onClick={() => void ocrLaufen()}>
+          <button type="button" className="secondary kompakt-knopf" onClick={() => void ocrLaufen()}>
             {aktiv.ocr_status === "ohne" ? "OCR erneut versuchen" : "Text auslesen (OCR)"}
           </button>
         )}
       </p>
-      <label>Kategorie / Konto
-        <select value={belegKonto} onChange={(event) => setBelegKonto(event.target.value)}>
-          {!kategorien.some((k) => k.schluessel === belegKonto) && belegKonto && (
-            <option value={belegKonto}>{belegKonto}</option>
-          )}
-          {kategorien.map((kat) => (
-            <option key={kat.schluessel} value={kat.schluessel}>{kat.name}</option>
-          ))}
-        </select>
-      </label>
-      <label>Rechnungsnummer
-        <input value={nummer} onChange={(event) => setNummer(event.target.value)} />
-      </label>
-      <label>Geschäftspartner
-        <input value={partner} onChange={(event) => setPartner(event.target.value)} />
-        <span className={"herkunft " + (aktiv.partner_herkunft || "leer")}>{herkunftText(aktiv.partner_herkunft)}</span>
-      </label>
-      <label>Belegdatum
-        <input type="date" value={datum} onChange={(event) => setDatum(event.target.value)} />
-        <span className={"herkunft " + (aktiv.datum_herkunft || "leer")}>{herkunftText(aktiv.datum_herkunft)}</span>
-      </label>
-      <label>Betrag
-        <input value={betrag} onChange={(event) => setBetrag(event.target.value)} />
-        <span className={"herkunft " + (aktiv.betrag_herkunft || "leer")}>{herkunftText(aktiv.betrag_herkunft)}</span>
-      </label>
+      <div className="form-gruppen">
+        <label>Kategorie / Konto
+          <select value={belegKonto} onChange={(event) => setBelegKonto(event.target.value)}>
+            {!kategorien.some((k) => k.schluessel === belegKonto) && belegKonto && (
+              <option value={belegKonto}>{belegKonto}</option>
+            )}
+            {kategorien.map((kat) => (
+              <option key={kat.schluessel} value={kat.schluessel}>{kat.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>Rechnungsnummer
+          <input value={nummer} onChange={(event) => setNummer(event.target.value)} />
+        </label>
+        <label>Geschäftspartner
+          <input value={partner} onChange={(event) => setPartner(event.target.value)} />
+          <span className={"herkunft " + (aktiv.partner_herkunft || "leer")}>{herkunftText(aktiv.partner_herkunft)}</span>
+        </label>
+        <label>Belegdatum
+          <input type="date" value={datum} onChange={(event) => setDatum(event.target.value)} />
+          <span className={"herkunft " + (aktiv.datum_herkunft || "leer")}>{herkunftText(aktiv.datum_herkunft)}</span>
+        </label>
+        <label>Betrag (€)
+          <input inputMode="decimal" placeholder="0,00" value={betrag} onChange={(event) => setBetrag(event.target.value)} />
+          <span className={"herkunft " + (aktiv.betrag_herkunft || "leer")}>{herkunftText(aktiv.betrag_herkunft)}</span>
+        </label>
+      </div>
       {aktiv.pruefung && <pre className="pruefung">{aktiv.pruefung}</pre>}
-      <div className="actions feld-ende">
+      <div className="actions" style={{ marginTop: "0.85rem" }}>
+        <button type="button" onClick={() => void speichern(true)}>Speichern & weiter</button>
+        <button type="button" className="secondary" onClick={() => void speichern(false)}>Speichern</button>
         <button type="button" className="secondary" onClick={() => void verfeinern()}>Mit KI verfeinern</button>
-        <button type="button" onClick={() => void speichern(true)}>Speichern und weiter</button>
+        <button type="button" className="secondary nur-desktop-inline" onClick={() => void belegeAnDatevSenden([aktiv.beleg_id], belegKonto || aktiv.quelle)}>
+          An DATEV
+        </button>
       </div>
     </div>
   );
 
   return (
-    <div className="seite" onDragOver={(event) => event.preventDefault()} onDrop={fallen}>
+    <div className={`seite ${hatDetail ? "hat-detail" : "nur-liste"}`} onDragOver={(event) => event.preventDefault()} onDrop={fallen}>
       {ablage.length > 0 && (
         <AblegenModal
           warteschlange={ablage}
@@ -414,16 +494,32 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
         />
       )}
       {bearbeitung && aktiv ? (
-        <Teilung
-          start={62}
-          links={<BelegAnsicht belegId={aktiv.beleg_id} name={aktiv.dateiname} />}
-          rechts={felder}
-        />
+        <div className="beleg-edit-layout">
+          <div className="nur-mobil-block spalte" style={{ paddingBottom: 0 }}>
+            {belegSteuerung}
+          </div>
+          <Teilung
+            start={58}
+            links={<div className="spalte vorschau-spalte"><BelegAnsicht belegId={aktiv.beleg_id} name={aktiv.dateiname} /></div>}
+            rechts={felder}
+          />
+        </div>
       ) : (
         <Teilung
-          start={58}
-          links={listePane}
-          rechts={aktiv ? <BelegAnsicht belegId={aktiv.beleg_id} name={aktiv.dateiname} /> : <p className="hinweis vorschau-mitte">Beleg wählen. Die Datei wird hier angezeigt.</p>}
+          start={56}
+          links={<div className="master-spalte">{listePane}</div>}
+          rechts={
+            <div className="detail-spalte spalte">
+              {aktiv ? (
+                <>
+                  {belegSteuerung}
+                  <BelegAnsicht belegId={aktiv.beleg_id} name={aktiv.dateiname} />
+                </>
+              ) : (
+                <p className="hinweis vorschau-mitte">Beleg links auswählen oder Datei importieren.</p>
+              )}
+            </div>
+          }
         />
       )}
     </div>
@@ -446,26 +542,28 @@ export function BelegAnsicht({ belegId, name }: { belegId: number; name: string 
     <div className="beleg-ansicht">
       {kopf && (
         <section className="erechnung">
-          <h3>Datenvisualisierung Rechnung</h3>
+          <h3>Datenvisualisierung E-Rechnung</h3>
           <div className="er-kopf">
             <fieldset className="block"><legend>Verkäufer</legend><p>{kopf.verkaeufer || "—"}</p></fieldset>
             <fieldset className="block er-hervorgehoben"><legend>Rechnungsnummer</legend><p className="er-wert-gross">{kopf.nummer || "—"}</p><p className="hinweis">{kopf.datum}</p></fieldset>
             <fieldset className="block"><legend>Käufer</legend><p>{kopf.kaeufer || "—"}</p></fieldset>
           </div>
           {kopf.positionen.length > 0 && (
-            <table>
-              <thead><tr><th>Bezeichnung</th><th>Menge</th><th>Preis</th><th>Gesamt</th></tr></thead>
-              <tbody>
-                {kopf.positionen.map((zeile, index) => (
-                  <tr key={index}>
-                    <td>{zeile.bezeichnung}</td>
-                    <td>{zeile.menge} {zeile.einheit}</td>
-                    <td>{zeile.preis}</td>
-                    <td>{zeile.gesamt}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="tabelle-scroll">
+              <table>
+                <thead><tr><th>Bezeichnung</th><th>Menge</th><th>Preis</th><th>Gesamt</th></tr></thead>
+                <tbody>
+                  {kopf.positionen.map((zeile, index) => (
+                    <tr key={index}>
+                      <td>{zeile.bezeichnung}</td>
+                      <td>{zeile.menge} {zeile.einheit}</td>
+                      <td>{zeile.preis}</td>
+                      <td>{zeile.gesamt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           <div className="er-summen">
             <span>Netto {kopf.netto}</span>
