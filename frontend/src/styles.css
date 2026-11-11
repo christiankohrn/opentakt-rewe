@@ -124,7 +124,8 @@ label { display: grid; gap: 0.2rem; font-size: 0.85rem; }
 }
 .navi-scroll { display: flex; flex-direction: column; gap: 0.35rem; overflow: auto; flex: 1; min-height: 0; }
 .navi-fuss { display: flex; flex-direction: column; gap: 0.35rem; flex: none; }
-.navi-benutzer { font-size: 0.8rem; opacity: 0.85; padding: 0 0.65rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navi-kopf { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.5rem 0.65rem 0.75rem; }
+.navi-benutzer { font-size: 0.8rem; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .navi a, .navi .button {
   color: inherit;
   text-decoration: none;
@@ -133,7 +134,14 @@ label { display: grid; gap: 0.2rem; font-size: 0.85rem; }
   background: transparent;
 }
 .navi a.active { background: var(--nav-active-bg); color: var(--nav-active-ink); }
-.navi button.abmelden, .navi button.thema { background: transparent; border: 1px solid rgba(255,255,255,0.35); color: inherit; }
+.navi a.navi-link { display: flex; align-items: center; gap: 0.6rem; }
+.navi-icon { width: 1.2rem; height: 1.2rem; flex: none; }
+.navi-fuss-zeile { display: flex; align-items: center; gap: 0.6rem; padding: 0.25rem 0.65rem; }
+.navi button.thema-knopf { background: transparent; border: 1px solid rgba(255,255,255,0.35); border-radius: 50%; padding: 0.45rem; color: inherit; display: grid; place-items: center; min-height: 0; }
+.navi button.abmelden { background: transparent; border: 0; padding: 0.3rem 0; color: inherit; opacity: 0.8; min-height: 0; }
+.navi button.abmelden:hover { opacity: 1; }
+.navi a.konto-link { font-size: 0.8rem; opacity: 0.65; padding-top: 0.15rem; }
+.navi a.konto-link:hover, .navi a.konto-link.active { opacity: 1; }
 .ablage-nav { border: 1px dashed rgba(255,255,255,0.75); border-radius: 8px; padding: 0.55rem; text-align: center; font-size: 0.8rem; min-height: calc(3 * (1.12rem + 1.1rem)); display: grid; place-items: center; cursor: pointer; }
 .fenster-grund { position: fixed; inset: 0; background: rgba(0, 14, 30, 0.5); z-index: 1000; display: grid; place-items: center; }
 .fenster { background: var(--card); color: var(--ink); width: min(36rem, 94vw); border-radius: 12px; padding: 1rem; box-shadow: 0 18px 48px rgba(0, 14, 30, 0.35); border: 1px solid var(--line); }
@@ -199,6 +207,11 @@ tr.markiert { box-shadow: inset 3px 0 0 var(--primary); }
 .optionen-seite { max-width: 90rem; margin: 0 auto; padding: 1.2rem 1.5rem 3rem; }
 .optionen-kopf { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.6rem; }
 .optionen-kopf h1 { margin: 0; font-size: 1.35rem; }
+.reiter { display: flex; gap: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.25rem; margin-bottom: 1rem; overflow-x: auto; }
+.reiter-knopf { flex: 1; white-space: nowrap; background: transparent; color: var(--muted); border: 0; border-radius: 8px; padding: 0.5rem 0.6rem; font-weight: 600; font-size: 0.9rem; }
+.reiter-knopf.aktiv { background: var(--btn-primary); color: #fff; }
+.konto-seite { max-width: 46rem; }
+.konto-sicherheit-titel { margin-top: 1.5rem; }
 .optionen-grid { display: grid; grid-template-columns: minmax(280px, 24rem) minmax(0, 1fr); gap: 1rem; align-items: start; }
 .optionen-stapel { display: flex; flex-direction: column; gap: 1rem; }
 .optionen-zwei { display: grid; grid-template-columns: minmax(280px, 24rem) minmax(0, 1fr); gap: 1rem; align-items: stretch; }
@@ -308,11 +321,13 @@ tr.ohne { background: var(--row-overdue); }
   .shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
   .navi { position: static; height: auto; flex: none; flex-direction: row; align-items: center; gap: 0.4rem; padding: 0.5rem; padding-top: calc(0.5rem + env(safe-area-inset-top)); }
   .navi-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; }
-  .navi-scroll strong { white-space: nowrap; padding: 0.5rem 0.4rem; }
+  .navi-kopf { padding: 0.5rem 0.4rem; }
+  .navi-kopf strong { white-space: nowrap; }
   .navi a { white-space: nowrap; padding: 0.55rem 0.7rem; }
   .navi-fuss { flex-direction: row; align-items: center; }
-  .ablage-nav, .navi-benutzer, .navi button.thema { display: none; }
+  .ablage-nav, .navi-benutzer, .navi button.thema-knopf { display: none; }
   .navi button.abmelden { white-space: nowrap; }
+  .navi a.konto-link { font-size: 0.9rem; padding: 0.55rem 0.4rem; }
   main { flex: 1; min-height: 0; height: auto; }
   .split, .konto-split { grid-template-columns: 1fr; height: auto; }
   .teilung { flex-direction: column; height: auto; }

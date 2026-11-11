@@ -9,8 +9,9 @@ import { EinstellungenSeite } from "./Optionen";
 import { RechnungenSeite } from "./Rechnungen";
 import { Ablegen } from "./Ablegen";
 import { ScanSeite } from "./Scan";
-import { SicherheitSeite } from "./Sicherheit";
+import { KontoSeite } from "./Konto";
 import { PasswortSetzen, PasswortVergessen } from "./Zugang";
+import { IconBeleg, IconBenutzer, IconGear, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun } from "./icons";
 import { PRODUCT_NAME } from "./brand";
 import { LinkIntern, routeLesen } from "./nav";
 import { useTheme } from "./theme";
@@ -24,8 +25,8 @@ export function App() {
   const [benutzer, setBenutzer] = useState<Benutzer | null | undefined>(undefined);
   const [route, setRoute] = useState(routeLesen);
   const [fehler, setFehler] = useState("");
-  const { theme, cycle } = useTheme();
-  const themeLabel = theme === "system" ? "System" : theme === "light" ? "Hell" : "Dunkel";
+  const { theme, dark, cycle } = useTheme();
+  const themeTitel = theme === "system" ? "Farbschema: System" : theme === "light" ? "Farbschema: Hell" : "Farbschema: Dunkel";
 
   useEffect(() => {
     api<Benutzer>("/api/auth/me").then(setBenutzer).catch(() => setBenutzer(null));
@@ -52,23 +53,27 @@ export function App() {
     <div className="shell">
       <nav className="navi">
         <div className="navi-scroll">
-          <strong>{PRODUCT_NAME}</strong>
-          <LinkIntern href="/rechnungen" className={route.seite === "rechnungen" ? "active" : ""}>Rechnungen</LinkIntern>
-          <LinkIntern href="/kunden" className={route.seite === "kunden" ? "active" : ""}>Kunden</LinkIntern>
-          <LinkIntern href="/belege" className={route.seite === "belege" ? "active" : ""}>Belegbearbeitung</LinkIntern>
-          <LinkIntern href="/scan" className={route.seite === "scan" ? "active" : ""}>Scannen</LinkIntern>
-          <LinkIntern href="/kontozeilen" className={route.seite === "kontozeilen" ? "active" : ""}>Kontozeilen</LinkIntern>
-          <LinkIntern href="/einstellungen" className={route.seite === "einstellungen" ? "active" : ""}>Einstellungen</LinkIntern>
-          <LinkIntern href="/sicherheit" className={route.seite === "sicherheit" ? "active" : ""}>Sicherheit</LinkIntern>
+          <div className="navi-kopf">
+            <strong>{PRODUCT_NAME}</strong>
+            <span className="navi-benutzer">{benutzer.name || benutzer.benutzername}</span>
+          </div>
+          <LinkIntern href="/rechnungen" className={`navi-link ${route.seite === "rechnungen" ? "active" : ""}`}><IconRechnung className="navi-icon" />Rechnungen</LinkIntern>
+          <LinkIntern href="/kunden" className={`navi-link ${route.seite === "kunden" ? "active" : ""}`}><IconKunden className="navi-icon" />Kunden</LinkIntern>
+          <LinkIntern href="/belege" className={`navi-link ${route.seite === "belege" ? "active" : ""}`}><IconBeleg className="navi-icon" />Belegbearbeitung</LinkIntern>
+          <LinkIntern href="/scan" className={`navi-link ${route.seite === "scan" ? "active" : ""}`}><IconScan className="navi-icon" />Scannen</LinkIntern>
+          <LinkIntern href="/kontozeilen" className={`navi-link ${route.seite === "kontozeilen" ? "active" : ""}`}><IconKontozeilen className="navi-icon" />Kontozeilen</LinkIntern>
+          <LinkIntern href="/einstellungen" className={`navi-link ${route.seite === "einstellungen" ? "active" : ""}`}><IconGear className="navi-icon" />Einstellungen</LinkIntern>
           {istAdmin && (
-            <LinkIntern href="/benutzer" className={route.seite === "benutzer" ? "active" : ""}>Benutzer</LinkIntern>
+            <LinkIntern href="/benutzer" className={`navi-link ${route.seite === "benutzer" ? "active" : ""}`}><IconBenutzer className="navi-icon" />Benutzer</LinkIntern>
           )}
         </div>
         <div className="navi-fuss">
           <Ablegen onFehler={setFehler} />
-          <span className="navi-benutzer">{benutzer.benutzername}</span>
-          <button type="button" className="thema" onClick={cycle} title="Farbschema wechseln">Farbschema: {themeLabel}</button>
-          <button type="button" className="abmelden" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }}>Abmelden</button>
+          <div className="navi-fuss-zeile">
+            <button type="button" className="thema-knopf" onClick={cycle} title={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
+            <button type="button" className="abmelden" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }}>Abmelden</button>
+          </div>
+          <LinkIntern href="/konto" className={`konto-link ${route.seite === "konto" ? "active" : ""}`}>Passwort ändern</LinkIntern>
         </div>
       </nav>
       <main>
@@ -79,7 +84,7 @@ export function App() {
         {route.seite === "scan" && <ScanSeite onFehler={setFehler} />}
         {route.seite === "kontozeilen" && <KontozeilenSeite bewegungId={route.id} onFehler={setFehler} />}
         {route.seite === "einstellungen" && <EinstellungenSeite onFehler={setFehler} />}
-        {route.seite === "sicherheit" && <SicherheitSeite onFehler={setFehler} />}
+        {route.seite === "konto" && <KontoSeite benutzer={benutzer} onFehler={setFehler} />}
         {route.seite === "benutzer" && istAdmin && <BenutzerSeite aktuell={benutzer} onFehler={setFehler} />}
       </main>
     </div>

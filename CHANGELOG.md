@@ -4,6 +4,8 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Ve
 
 ## [Unreleased]
 
+- Navigation und Konto an Opentakt Zeit angeglichen: Icons in der linken Leiste, Farbschema als Icon-Knopf, „Passwort ändern“ unten führt auf die neue Konto-Seite mit Passwortformular und darunter den Sicherheitseinstellungen (2FA, Passkeys); der eigene Menüpunkt Sicherheit entfällt
+- Einstellungen mit Tab-Leiste (Stammdaten, Rechnungen & Konten, E-Mail & KI, Erkennung, Partner) statt Button-Reihe
 - Automatischer Belegimport aus einem eigenen Postfach (IMAP): ungesehene Mails werden abgerufen, Anhänge als Belege importiert, Mails als gelesen markiert oder in einen Erledigt-Ordner sortiert; Abruf per Timer alle 15 Minuten, von Hand in den Einstellungen oder per `python -m app.cli mailimport`
 - Lokale Texterkennung (OCR) für alle Belege: Textteil wird beim Import geprüft, textlose PDFs und Bilder werden automatisch gelesen (Tesseract, Deutsch/Englisch); Status steht am Beleg, OCR lässt sich in der Belegbearbeitung erneut anstoßen
 - Scan-Seite fürs Smartphone: Beleg fotografieren, Umrisse werden automatisch gesucht und lassen sich an Ecken nachziehen, mehrseitige Scans werden als PDF importiert

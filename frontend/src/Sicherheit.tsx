@@ -18,7 +18,7 @@ type Status = {
 
 type Start = { secret: string; otpauth_uri: string; qr_svg: string };
 
-export function SicherheitSeite({ onFehler }: { onFehler: (text: string) => void }) {
+export function SicherheitEinstellungen({ onFehler }: { onFehler: (text: string) => void }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [start, setStart] = useState<Start | null>(null);
   const [code, setCode] = useState("");
@@ -164,10 +164,7 @@ export function SicherheitSeite({ onFehler }: { onFehler: (text: string) => void
   if (!status) return <p>Laden …</p>;
 
   return (
-    <div className="optionen-seite">
-      <header className="optionen-kopf">
-        <h1>Sicherheit</h1>
-      </header>
+    <>
       {fehler && <p className="fehler">{fehler}</p>}
       {hinweis && <p className="hinweis">{hinweis}</p>}
       <div className="card">
@@ -286,6 +283,6 @@ export function SicherheitSeite({ onFehler }: { onFehler: (text: string) => void
           </div>
         </form>
       </div>
-    </div>
+    </>
   );
 }

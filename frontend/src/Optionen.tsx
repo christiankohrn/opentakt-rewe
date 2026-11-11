@@ -438,24 +438,24 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
     <div className="optionen-seite">
       <header className="optionen-kopf">
         <h1>Einstellungen</h1>
-        <div className="actions">
-          <button type="button" className={reiter === "stammdaten" ? "" : "secondary"} onClick={() => setReiter("stammdaten")}>
-            Stammdaten & Rechnungslayout
-          </button>
-          <button type="button" className={reiter === "allgemein" ? "" : "secondary"} onClick={() => setReiter("allgemein")}>
-            Rechnungen & Konten
-          </button>
-          <button type="button" className={reiter === "verbindung" ? "" : "secondary"} onClick={() => setReiter("verbindung")}>
-            E-Mail, Postfach & Azure KI
-          </button>
-          <button type="button" className={reiter === "abrechnungen" ? "" : "secondary"} onClick={() => void abrechnungenLaden()}>
-            Abrechnungserkennung
-          </button>
-          <button type="button" className={reiter === "partner" ? "" : "secondary"} onClick={() => void partnerLaden()}>
-            Geschäftspartner ({partner.length || "…"})
-          </button>
-        </div>
       </header>
+      <div className="reiter" role="tablist" aria-label="Einstellungen">
+        <button type="button" role="tab" aria-selected={reiter === "stammdaten"} className={reiter === "stammdaten" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("stammdaten")}>
+          Stammdaten
+        </button>
+        <button type="button" role="tab" aria-selected={reiter === "allgemein"} className={reiter === "allgemein" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("allgemein")}>
+          Rechnungen & Konten
+        </button>
+        <button type="button" role="tab" aria-selected={reiter === "verbindung"} className={reiter === "verbindung" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("verbindung")}>
+          E-Mail & KI
+        </button>
+        <button type="button" role="tab" aria-selected={reiter === "abrechnungen"} className={reiter === "abrechnungen" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => void abrechnungenLaden()}>
+          Erkennung
+        </button>
+        <button type="button" role="tab" aria-selected={reiter === "partner"} className={reiter === "partner" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => void partnerLaden()}>
+          Partner
+        </button>
+      </div>
 
       {reiter === "stammdaten" && stammdaten && (
         <form className="card" onSubmit={(event) => void stammdatenSpeichern(event)}>

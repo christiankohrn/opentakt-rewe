@@ -30,7 +30,7 @@ export function routeLesen(): { seite: string; id: number | null; neu: boolean }
   const teile = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
   const roh = teile[0] || "rechnungen";
   const seite = roh === "optionen" ? "einstellungen" : roh;
-  const bekannt = new Set(["rechnungen", "kunden", "belege", "scan", "kontozeilen", "einstellungen", "benutzer", "sicherheit", "passwort-vergessen", "passwort-setzen"]);
+  const bekannt = new Set(["rechnungen", "kunden", "belege", "scan", "kontozeilen", "einstellungen", "benutzer", "konto", "passwort-vergessen", "passwort-setzen"]);
   const neu = teile[1] === "neu";
   const id = !neu && teile[1] && /^\d+$/.test(teile[1]) ? Number(teile[1]) : null;
   return { seite: bekannt.has(seite) ? seite : "rechnungen", id, neu };
