@@ -264,19 +264,6 @@ export function BelegeSeite({ belegId, onFehler }: { belegId: number | null; onF
 
   const listePane = (
     <div className="liste-spalte dicht">
-      <div className="card scan">
-        <strong>Belege fotografieren, auswählen oder hineinziehen</strong>
-        <input
-          type="file"
-          multiple
-          accept="image/*,application/pdf,.csv,.xml,.sta,.mt940,.txt"
-          capture="environment"
-          onChange={(event) => {
-            if (event.target.files?.length) dateienDazu([...event.target.files]);
-            event.target.value = "";
-          }}
-        />
-      </div>
       <KontoFilter wert={konto} onChange={setKonto} />
       <label>Suche<input value={suche} onChange={(event) => setSuche(event.target.value)} /></label>
       <div className="actions">

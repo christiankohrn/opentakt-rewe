@@ -76,6 +76,19 @@ export function App() {
           <LinkIntern href="/konto" className={`konto-link ${route.seite === "konto" ? "active" : ""}`}>Passwort ändern</LinkIntern>
         </div>
       </nav>
+      <header className="mobil-kopf">
+        <div className="mobil-kopf-links">
+          <strong>{PRODUCT_NAME}</strong>
+          <span>{benutzer.name || benutzer.benutzername}</span>
+        </div>
+        <div className="mobil-kopf-rechts">
+          <button type="button" className="thema-knopf-mobil" onClick={cycle} title={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
+          <button type="button" className="mobil-link" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }}>Abmelden</button>
+          <LinkIntern href="/konto">Konto</LinkIntern>
+          <LinkIntern href="/einstellungen">Einstellungen</LinkIntern>
+          {istAdmin && <LinkIntern href="/benutzer">Benutzer</LinkIntern>}
+        </div>
+      </header>
       <main>
         <Fehler text={fehler} />
         {route.seite === "rechnungen" && <RechnungenSeite rechnungId={route.id} onFehler={setFehler} />}
@@ -87,6 +100,15 @@ export function App() {
         {route.seite === "konto" && <KontoSeite benutzer={benutzer} onFehler={setFehler} />}
         {route.seite === "benutzer" && istAdmin && <BenutzerSeite aktuell={benutzer} onFehler={setFehler} />}
       </main>
+      <nav className="mobil-unten">
+        <div className="mobil-unten-leiste">
+          <LinkIntern href="/rechnungen" className={route.seite === "rechnungen" ? "active" : ""}><IconRechnung />Rechnungen</LinkIntern>
+          <LinkIntern href="/kunden" className={route.seite === "kunden" ? "active" : ""}><IconKunden />Kunden</LinkIntern>
+          <LinkIntern href="/belege" className={route.seite === "belege" ? "active" : ""}><IconBeleg />Belege</LinkIntern>
+          <LinkIntern href="/scan" className={route.seite === "scan" ? "active" : ""}><IconScan />Scannen</LinkIntern>
+          <LinkIntern href="/kontozeilen" className={route.seite === "kontozeilen" ? "active" : ""}><IconKontozeilen />Kontozeilen</LinkIntern>
+        </div>
+      </nav>
     </div>
   );
 }
