@@ -86,6 +86,31 @@ export function IconKonto({ className }: IconProps) {
   );
 }
 
+export function IconAbmelden({ className }: IconProps) {
+  return (
+    <Geruest className={className}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
+    </Geruest>
+  );
+}
+
+export function IconChevronLinks({ className }: IconProps) {
+  return (
+    <Geruest className={className}>
+      <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </Geruest>
+  );
+}
+
+export function IconChevronRechts({ className }: IconProps) {
+  return (
+    <Geruest className={className}>
+      <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+    </Geruest>
+  );
+}
+
 export function IconSun({ className }: IconProps) {
   return (
     <Geruest className={className}>

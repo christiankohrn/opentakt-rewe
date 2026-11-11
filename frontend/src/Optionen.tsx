@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiFehler, api } from "./api";
+import { BenutzerSeite, type Benutzer } from "./Benutzer";
 import type { Kategorie } from "./konten";
 
 type Smtp = {
@@ -65,7 +66,7 @@ type Partner = {
   betrag_muster: string;
 };
 
-type Reiter = "stammdaten" | "allgemein" | "verbindung" | "abrechnungen" | "partner" | "update";
+type Reiter = "stammdaten" | "allgemein" | "verbindung" | "abrechnungen" | "partner" | "update" | "benutzer";
 
 type UpdateInstalliert = {
   version: string;
@@ -363,7 +364,7 @@ function UpdateKarte() {
   );
 }
 
-export function EinstellungenSeite({ onFehler, istAdmin }: { onFehler: (text: string) => void; istAdmin: boolean }) {
+export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: (text: string) => void; istAdmin: boolean; aktuell: Benutzer }) {
   const [reiter, setReiter] = useState<Reiter>("stammdaten");
   const [naechste, setNaechste] = useState("");
   const [gespeichert, setGespeichert] = useState("");
@@ -747,6 +748,11 @@ export function EinstellungenSeite({ onFehler, istAdmin }: { onFehler: (text: st
         {istAdmin && (
           <button type="button" role="tab" aria-selected={reiter === "update"} className={reiter === "update" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("update")}>
             Update
+          </button>
+        )}
+        {istAdmin && (
+          <button type="button" role="tab" aria-selected={reiter === "benutzer"} className={reiter === "benutzer" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("benutzer")}>
+            Benutzer
           </button>
         )}
       </div>
@@ -1317,6 +1323,8 @@ export function EinstellungenSeite({ onFehler, istAdmin }: { onFehler: (text: st
       )}
 
       {reiter === "update" && istAdmin && <UpdateKarte />}
+
+      {reiter === "benutzer" && istAdmin && <BenutzerSeite aktuell={aktuell} onFehler={onFehler} />}
     </div>
   );
 }

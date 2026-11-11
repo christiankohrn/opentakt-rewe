@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { ApiFehler, api } from "./api";
 import { BelegeSeite } from "./Belege";
-import { BenutzerSeite, type Benutzer } from "./Benutzer";
+import { type Benutzer } from "./Benutzer";
 import { KundenSeite } from "./Kunden";
 import { KontozeilenSeite } from "./Kontozeilen";
 import { EinstellungenSeite } from "./Optionen";
@@ -11,7 +11,7 @@ import { Ablegen } from "./Ablegen";
 import { ScanSeite } from "./Scan";
 import { KontoSeite } from "./Konto";
 import { PasswortSetzen, PasswortVergessen } from "./Zugang";
-import { IconBeleg, IconBenutzer, IconGear, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun } from "./icons";
+import { IconAbmelden, IconBeleg, IconChevronLinks, IconChevronRechts, IconGear, IconKonto, IconKontozeilen, IconKunden, IconMoon, IconRechnung, IconScan, IconSun } from "./icons";
 import { PRODUCT_NAME } from "./brand";
 import { LinkIntern, routeLesen } from "./nav";
 import { useTheme } from "./theme";
@@ -63,9 +63,6 @@ export function App() {
           <LinkIntern href="/scan" className={`navi-link ${route.seite === "scan" ? "active" : ""}`}><IconScan className="navi-icon" />Scannen</LinkIntern>
           <LinkIntern href="/kontozeilen" className={`navi-link ${route.seite === "kontozeilen" ? "active" : ""}`}><IconKontozeilen className="navi-icon" />Kontozeilen</LinkIntern>
           <LinkIntern href="/einstellungen" className={`navi-link ${route.seite === "einstellungen" ? "active" : ""}`}><IconGear className="navi-icon" />Einstellungen</LinkIntern>
-          {istAdmin && (
-            <LinkIntern href="/benutzer" className={`navi-link ${route.seite === "benutzer" ? "active" : ""}`}><IconBenutzer className="navi-icon" />Benutzer</LinkIntern>
-          )}
         </div>
         <div className="navi-fuss">
           <Ablegen onFehler={setFehler} />
@@ -82,11 +79,9 @@ export function App() {
           <span>{benutzer.name || benutzer.benutzername}</span>
         </div>
         <div className="mobil-kopf-rechts">
-          <button type="button" className="thema-knopf-mobil" onClick={cycle} title={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
-          <button type="button" className="mobil-link" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }}>Abmelden</button>
-          <LinkIntern href="/konto">Konto</LinkIntern>
-          <LinkIntern href="/einstellungen">Einstellungen</LinkIntern>
-          {istAdmin && <LinkIntern href="/benutzer">Benutzer</LinkIntern>}
+          <button type="button" className="thema-knopf-mobil" onClick={cycle} title={themeTitel} aria-label={themeTitel}>{dark ? <IconSun className="navi-icon" /> : <IconMoon className="navi-icon" />}</button>
+          <button type="button" className="mobil-icon-knopf" onClick={async () => { await api("/api/auth/logout", { method: "POST" }); setBenutzer(null); }} title="Abmelden" aria-label="Abmelden"><IconAbmelden className="navi-icon" /></button>
+          <LinkIntern href="/konto" className="mobil-icon-knopf" title="Konto"><IconKonto className="navi-icon" /></LinkIntern>
         </div>
       </header>
       <main>
@@ -96,20 +91,57 @@ export function App() {
         {route.seite === "belege" && <BelegeSeite belegId={route.id} onFehler={setFehler} />}
         {route.seite === "scan" && <ScanSeite onFehler={setFehler} />}
         {route.seite === "kontozeilen" && <KontozeilenSeite bewegungId={route.id} onFehler={setFehler} />}
-        {route.seite === "einstellungen" && <EinstellungenSeite onFehler={setFehler} istAdmin={istAdmin} />}
+        {route.seite === "einstellungen" && <EinstellungenSeite onFehler={setFehler} istAdmin={istAdmin} aktuell={benutzer} />}
         {route.seite === "konto" && <KontoSeite benutzer={benutzer} onFehler={setFehler} />}
-        {route.seite === "benutzer" && istAdmin && <BenutzerSeite aktuell={benutzer} onFehler={setFehler} />}
       </main>
-      <nav className="mobil-unten">
-        <div className="mobil-unten-leiste">
-          <LinkIntern href="/rechnungen" className={route.seite === "rechnungen" ? "active" : ""}><IconRechnung />Rechnungen</LinkIntern>
-          <LinkIntern href="/kunden" className={route.seite === "kunden" ? "active" : ""}><IconKunden />Kunden</LinkIntern>
-          <LinkIntern href="/belege" className={route.seite === "belege" ? "active" : ""}><IconBeleg />Belege</LinkIntern>
-          <LinkIntern href="/scan" className={route.seite === "scan" ? "active" : ""}><IconScan />Scannen</LinkIntern>
-          <LinkIntern href="/kontozeilen" className={route.seite === "kontozeilen" ? "active" : ""}><IconKontozeilen />Kontozeilen</LinkIntern>
-        </div>
-      </nav>
+      <MobilUnten seite={route.seite} />
     </div>
+  );
+}
+
+function MobilUnten({ seite }: { seite: string }) {
+  const rolle = useRef<HTMLDivElement>(null);
+  const [links, setLinks] = useState(false);
+  const [rechts, setRechts] = useState(false);
+
+  function pruefen() {
+    const el = rolle.current;
+    if (!el) return;
+    setLinks(el.scrollLeft > 4);
+    setRechts(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }
+
+  useEffect(() => {
+    pruefen();
+    window.addEventListener("resize", pruefen);
+    return () => window.removeEventListener("resize", pruefen);
+  }, []);
+
+  function rollen(weite: number) {
+    rolle.current?.scrollBy({ left: weite, behavior: "smooth" });
+  }
+
+  return (
+    <nav className="mobil-unten">
+      {links && (
+        <button type="button" className="unten-pfeil links" onClick={() => rollen(-160)} title="Nach links" aria-label="Nach links rollen">
+          <IconChevronLinks />
+        </button>
+      )}
+      <div className="mobil-unten-leiste" ref={rolle} onScroll={pruefen}>
+        <LinkIntern href="/rechnungen" className={seite === "rechnungen" ? "active" : ""}><IconRechnung />Rechnungen</LinkIntern>
+        <LinkIntern href="/kunden" className={seite === "kunden" ? "active" : ""}><IconKunden />Kunden</LinkIntern>
+        <LinkIntern href="/belege" className={seite === "belege" ? "active" : ""}><IconBeleg />Belege</LinkIntern>
+        <LinkIntern href="/scan" className={seite === "scan" ? "active" : ""}><IconScan />Scannen</LinkIntern>
+        <LinkIntern href="/kontozeilen" className={seite === "kontozeilen" ? "active" : ""}><IconKontozeilen />Kontozeilen</LinkIntern>
+        <LinkIntern href="/einstellungen" className={seite === "einstellungen" ? "active" : ""}><IconGear />Einstellungen</LinkIntern>
+      </div>
+      {rechts && (
+        <button type="button" className="unten-pfeil rechts" onClick={() => rollen(160)} title="Nach rechts" aria-label="Nach rechts rollen">
+          <IconChevronRechts />
+        </button>
+      )}
+    </nav>
   );
 }
 

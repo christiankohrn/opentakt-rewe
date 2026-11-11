@@ -4,7 +4,8 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Ve
 
 ## [Unreleased]
 
-- Mobile Oberfläche wie in Opentakt Zeit (bis 1024px, also auch iPhone quer): Kopfzeile mit Farbschema-Knopf, Abmelden und Konto/Einstellungen/Benutzer oben, fixierte Icon-Leiste mit den fünf Hauptbereichen unten; Listen scrollen seitlich statt zu quetschen
+- Mobile Oberfläche wie in Opentakt Zeit (bis 1024px, also auch iPhone quer): Kopfzeile mit Icon-Knöpfen (Farbschema, Abmelden, Konto) oben, fixierte Icon-Leiste mit sechs Hauptbereichen und Scroll-Pfeilen unten; Listen scrollen seitlich statt zu quetschen
+- Benutzerverwaltung als Reiter in den Einstellungen (nur Admin, überall) statt eigenem Menüpunkt
 - Belegbearbeitung ohne die Datei-Auswahlkarte oben (Belege kommen per Scannen, Postfach oder Drag & Drop hinein)
 - Update-Check und One-Button-Update in den Einstellungen (eigener Reiter, nur Admin, Quelle ist GitHub): Stand prüfen, per Knopf installieren — der Server sichert die Datenbank per pg_dump, holt den Code, baut neu und startet den Dienst. Manueller Weg bleibt als Ersatz. Funktioniert auf jedem Server mit Update-Unit, auch auf Dev-Servern.
 - Schriften und Navigationskopf wie in Opentakt Zeit: Überschriften in mittlerem Schnitt und ruhigeren Stufen, tabellarische Ziffern, Produkt- und Benutzername oben links im gleichen Stil
