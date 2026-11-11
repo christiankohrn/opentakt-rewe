@@ -20,7 +20,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
-    "vite-plugin-pwa": "^0.21.1"
+    "vite-plugin-pwa": "^2.0.0"
   },
   "license": "AGPL-3.0-or-later",
   "description": "PWA für Opentakt Rewe"
