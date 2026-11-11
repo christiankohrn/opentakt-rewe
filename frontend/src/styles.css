@@ -127,7 +127,7 @@ h3 { font-size: 1rem; font-weight: 500; }
 }
 .navi-kopf { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.5rem 1rem 1rem; flex: none; }
 .navi-kopf strong { font-size: 0.875rem; font-weight: 500; line-height: 1.25; }
-.navi-benutzer { font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navi-benutzer { font-size: 0.875rem; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .navi-scroll { display: flex; flex-direction: column; gap: 0.25rem; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; padding: 0 0.75rem; }
 .navi-fuss { display: flex; flex-direction: column; flex: none; }
 .navi a, .navi .button {
@@ -332,7 +332,7 @@ tr.ohne { background: var(--row-overdue); }
   .mobil-kopf { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 0.5rem; flex: none; }
   .mobil-kopf-links { display: flex; flex-direction: column; min-width: 0; }
   .mobil-kopf-links strong { font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap; }
-  .mobil-kopf-links span { font-size: 0.875rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobil-kopf-links span { font-size: 0.875rem; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobil-kopf-rechts { display: flex; align-items: center; gap: 0.75rem; flex: none; overflow-x: auto; }
   .mobil-kopf-rechts a { font-size: 0.875rem; color: var(--muted); text-decoration: none; white-space: nowrap; }
   button.mobil-link { background: transparent; border: 0; padding: 0; font-size: 0.875rem; color: var(--muted); white-space: nowrap; min-height: 0; }
