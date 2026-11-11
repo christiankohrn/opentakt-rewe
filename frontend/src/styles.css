@@ -9,9 +9,9 @@
   --line-strong: #002246;
   --primary: #004d9d;
   --nav: #002246;
-  --nav-ink: #f2f5f9;
-  --nav-active-bg: #ffffff;
-  --nav-active-ink: #002246;
+  --nav-ink: #ffffff;
+  --nav-active-bg: #004d9d;
+  --nav-active-ink: #ffffff;
   --btn-primary: #004d9d;
   --btn-secondary-bg: #e2e8f0;
   --btn-secondary-ink: #002246;
@@ -36,9 +36,9 @@ html.dark {
   --line-strong: #9aacbe;
   --primary: #5ba3e0;
   --nav: #00152c;
-  --nav-ink: #e8eef5;
-  --nav-active-bg: #e8eef5;
-  --nav-active-ink: #002246;
+  --nav-ink: #ffffff;
+  --nav-active-bg: #5ba3e0;
+  --nav-active-ink: #ffffff;
   --btn-primary: #004d9d;
   --btn-secondary-bg: #294e75;
   --btn-secondary-ink: #e8eef5;
@@ -114,41 +114,41 @@ h1 { font-size: 1.25rem; font-weight: 500; }
 h2 { font-size: 1.125rem; font-weight: 500; }
 h3 { font-size: 1rem; font-weight: 500; }
 
-.shell { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); height: 100vh; overflow: hidden; }
+.shell { display: grid; grid-template-columns: 14rem minmax(0, 1fr); height: 100vh; overflow: hidden; }
 .navi {
   background: var(--nav);
-  color: var(--nav-ink);
+  color: #fff;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding: 1rem 0.7rem;
   height: 100vh;
   position: sticky;
   top: 0;
   overflow: hidden;
 }
-.navi-scroll { display: flex; flex-direction: column; gap: 0.35rem; overflow: auto; flex: 1; min-height: 0; }
-.navi-fuss { display: flex; flex-direction: column; gap: 0.35rem; flex: none; }
-.navi-kopf { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.5rem 0.65rem 1rem; }
+.navi-kopf { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.5rem 1rem 1rem; flex: none; }
 .navi-kopf strong { font-size: 0.875rem; font-weight: 500; line-height: 1.25; }
 .navi-benutzer { font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navi-scroll { display: flex; flex-direction: column; gap: 0.25rem; overflow-y: auto; overflow-x: hidden; flex: 1; min-height: 0; padding: 0 0.75rem; }
+.navi-fuss { display: flex; flex-direction: column; flex: none; }
 .navi a, .navi .button {
-  color: inherit;
+  color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
-  padding: 0.5rem 0.65rem;
-  border-radius: 6px;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
   background: transparent;
 }
+.navi a:hover { background: rgba(255, 255, 255, 0.1); }
 .navi a.active { background: var(--nav-active-bg); color: var(--nav-active-ink); }
-.navi a.navi-link { display: flex; align-items: center; gap: 0.6rem; }
-.navi-icon { width: 1.2rem; height: 1.2rem; flex: none; }
-.navi-fuss-zeile { display: flex; align-items: center; gap: 0.6rem; padding: 0.25rem 0.65rem; }
-.navi button.thema-knopf { background: transparent; border: 1px solid rgba(255,255,255,0.35); border-radius: 50%; padding: 0.45rem; color: inherit; display: grid; place-items: center; min-height: 0; }
-.navi button.abmelden { background: transparent; border: 0; padding: 0.3rem 0; color: inherit; opacity: 0.8; min-height: 0; }
-.navi button.abmelden:hover { opacity: 1; }
-.navi a.konto-link { font-size: 0.8rem; opacity: 0.65; padding-top: 0.15rem; }
-.navi a.konto-link:hover, .navi a.konto-link.active { opacity: 1; }
-.ablage-nav { border: 1px dashed rgba(255,255,255,0.75); border-radius: 8px; padding: 0.55rem; text-align: center; font-size: 0.8rem; min-height: calc(3 * (1.12rem + 1.1rem)); display: grid; place-items: center; cursor: pointer; }
+.navi a.navi-link { display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; font-weight: 500; }
+.navi-icon { width: 1.25rem; height: 1.25rem; flex: none; }
+.navi-fuss-zeile { display: flex; align-items: center; gap: 0.5rem; padding: 1rem; }
+.navi button.thema-knopf { background: transparent; border: 1px solid rgba(255,255,255,0.2); border-radius: 9999px; padding: 0.5rem; color: rgba(255,255,255,0.8); display: grid; place-items: center; min-height: 0; }
+.navi button.thema-knopf:hover { background: rgba(255,255,255,0.1); }
+.navi button.abmelden { background: transparent; border: 0; padding: 0; color: rgba(255,255,255,0.7); font-size: 0.875rem; min-height: 0; }
+.navi button.abmelden:hover { color: #fff; }
+.navi a.konto-link { font-size: 0.75rem; color: rgba(255,255,255,0.5); padding: 0 1rem 1rem; border-radius: 0; }
+.navi a.konto-link:hover, .navi a.konto-link.active { color: #fff; background: transparent; }
+.ablage-nav { border: 1px dashed rgba(255,255,255,0.75); border-radius: 8px; padding: 0.55rem; margin: 0 1rem 0.5rem; text-align: center; font-size: 0.8rem; min-height: calc(3 * (1.12rem + 1.1rem)); display: grid; place-items: center; cursor: pointer; color: rgba(255,255,255,0.8); }
 .fenster-grund { position: fixed; inset: 0; background: rgba(0, 14, 30, 0.5); z-index: 1000; display: grid; place-items: center; }
 .fenster { background: var(--card); color: var(--ink); width: min(36rem, 94vw); border-radius: 12px; padding: 1rem; box-shadow: 0 18px 48px rgba(0, 14, 30, 0.35); border: 1px solid var(--line); }
 .fenster-breit { width: min(76rem, 96vw); max-height: 92vh; overflow: hidden; display: flex; flex-direction: column; }
@@ -327,10 +327,11 @@ tr.ohne { background: var(--row-overdue); }
   .shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
   .navi { position: static; height: auto; flex: none; flex-direction: row; align-items: center; gap: 0.4rem; padding: 0.5rem; padding-top: calc(0.5rem + env(safe-area-inset-top)); }
   .navi-scroll { flex-direction: row; align-items: center; overflow-x: auto; overflow-y: hidden; }
-  .navi-kopf { padding: 0.5rem 0.4rem; }
+  .navi-kopf { padding: 0.5rem 0.4rem; gap: 0; }
   .navi-kopf strong { white-space: nowrap; }
   .navi a { white-space: nowrap; padding: 0.55rem 0.7rem; }
-  .navi-fuss { flex-direction: row; align-items: center; }
+  .navi-fuss { flex-direction: row; align-items: center; gap: 0.4rem; }
+  .navi-fuss-zeile { padding: 0; }
   .ablage-nav, .navi-benutzer, .navi button.thema-knopf { display: none; }
   .navi button.abmelden { white-space: nowrap; }
   .navi a.konto-link { font-size: 0.9rem; padding: 0.55rem 0.4rem; }

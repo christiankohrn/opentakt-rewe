@@ -18,22 +18,6 @@ LOG="$DATA/update.log"
 META="$DATA/.update-meta.json"
 LOCK="$DATA/update.lock"
 
-if [ ! -w "$DATA" ]; then
-  echo "Keine Schreibrechte auf $DATA — als root starten." >&2
-  exit 1
-fi
-if ! mkdir "$LOCK" 2>/dev/null; then
-  echo "Ein Update läuft bereits. Abbruch."
-  exit 0
-fi
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
-
-# Die zweite Phase (--continue-from-web) hakt sich per exec ein und hängt an.
-if [ "$MODE" != "--continue-from-web" ]; then
-  : >"$LOG"
-fi
-exec > >(tee -a "$LOG") 2>&1
-
 # Pflegt den Update-Teil von $DATA/update-status.json. Argumente: zustand [fehler] [commit].
 update_state() {
   STATE="$1" STATE_ERROR="${2:-}" STATE_TO="${3:-}" python3 <<'PY'
@@ -163,6 +147,30 @@ fail() {
   exit 1
 }
 
+if [ ! -w "$DATA" ]; then
+  echo "Keine Schreibrechte auf $DATA — als root starten." >&2
+  exit 1
+fi
+# --from-web übergibt per exec an --continue-from-web. Die Sperre bleibt liegen,
+# der zweite Prozess übernimmt sie (kein zweites mkdir, sonst bricht er ab).
+if [ "$MODE" = "--continue-from-web" ]; then
+  if [ ! -d "$LOCK" ]; then
+    echo "Update-Sperre fehlt. Abbruch." >&2
+    update_state failed "Update-Sperre fehlt."
+    exit 1
+  fi
+elif ! mkdir "$LOCK" 2>/dev/null; then
+  echo "Ein Update läuft bereits. Abbruch."
+  exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+
+# Die zweite Phase (--continue-from-web) hakt sich per exec ein und hängt an.
+if [ "$MODE" != "--continue-from-web" ]; then
+  : >"$LOG"
+fi
+exec > >(tee -a "$LOG") 2>&1
+
 if [ "$MODE" = "--from-web" ]; then
   rm -f "$DATA/update.request"
   update_state running
@@ -184,6 +192,7 @@ if [ "$MODE" = "--from-web" ]; then
     --exclude '*.db*' \
     "$WORK"/ "$APP"/
   rm -rf "$WORK"
+  chmod a+x "$APP/deploy/"*.sh
   echo "==> Code synchron, starte neue Version"
   exec bash "$APP/deploy/update.sh" --continue-from-web
 fi

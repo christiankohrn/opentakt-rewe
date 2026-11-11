@@ -52,11 +52,11 @@ export function App() {
   return (
     <div className="shell">
       <nav className="navi">
+        <div className="navi-kopf">
+          <strong>{PRODUCT_NAME}</strong>
+          <span className="navi-benutzer">{benutzer.name || benutzer.benutzername}</span>
+        </div>
         <div className="navi-scroll">
-          <div className="navi-kopf">
-            <strong>{PRODUCT_NAME}</strong>
-            <span className="navi-benutzer">{benutzer.name || benutzer.benutzername}</span>
-          </div>
           <LinkIntern href="/rechnungen" className={`navi-link ${route.seite === "rechnungen" ? "active" : ""}`}><IconRechnung className="navi-icon" />Rechnungen</LinkIntern>
           <LinkIntern href="/kunden" className={`navi-link ${route.seite === "kunden" ? "active" : ""}`}><IconKunden className="navi-icon" />Kunden</LinkIntern>
           <LinkIntern href="/belege" className={`navi-link ${route.seite === "belege" ? "active" : ""}`}><IconBeleg className="navi-icon" />Belegbearbeitung</LinkIntern>
