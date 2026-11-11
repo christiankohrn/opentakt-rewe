@@ -264,19 +264,56 @@ SITE=/etc/nginx/sites-available/buchhaltung
 cat > "$SITE" <<EOF
 # Opentakt Rewe. Zertifikate erwartet unter /etc/nginx/certs/$DOMAIN/.
 server {
+  listen 80;
+  listen [::]:80;
+  server_name $DOMAIN;
+  return 301 https://\$host\$request_uri;
+}
+
+server {
   listen 443 ssl;
+  listen [::]:443 ssl;
+  http2 on;
   server_name $DOMAIN;
   ssl_certificate /etc/nginx/certs/$DOMAIN/fullchain.pem;
   ssl_certificate_key /etc/nginx/certs/$DOMAIN/privkey.pem;
 
+  client_max_body_size 32m;
+
   root $APP/frontend/dist;
   index index.html;
+
+  location = /sw.js {
+    add_header Cache-Control "no-cache";
+    try_files \$uri =404;
+  }
+
+  location = /registerSW.js {
+    add_header Cache-Control "no-cache";
+    try_files \$uri =404;
+  }
+
+  location = /index.html {
+    add_header Cache-Control "no-cache";
+  }
+
+  location ~* \\.mjs\$ {
+    types { application/javascript mjs; }
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files \$uri =404;
+  }
+
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files \$uri =404;
+  }
 
   location /api/ {
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host \$host;
     proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto \$scheme;
+    proxy_read_timeout 120s;
   }
 
   location / {
