@@ -71,7 +71,7 @@ html.dark {
 
 * { box-sizing: border-box; }
 
-body { margin: 0; }
+body { margin: 0; font-variant-numeric: tabular-nums; }
 
 button, input, select, textarea {
   font: inherit;
@@ -109,6 +109,11 @@ textarea { min-height: 4.5rem; resize: vertical; }
 
 label { display: grid; gap: 0.2rem; font-size: 0.85rem; }
 
+/* Überschriften wie in Opentakt Zeit: mittel statt fett, ruhige Stufen. */
+h1 { font-size: 1.25rem; font-weight: 500; }
+h2 { font-size: 1.125rem; font-weight: 500; }
+h3 { font-size: 1rem; font-weight: 500; }
+
 .shell { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); height: 100vh; overflow: hidden; }
 .navi {
   background: var(--nav);
@@ -124,8 +129,9 @@ label { display: grid; gap: 0.2rem; font-size: 0.85rem; }
 }
 .navi-scroll { display: flex; flex-direction: column; gap: 0.35rem; overflow: auto; flex: 1; min-height: 0; }
 .navi-fuss { display: flex; flex-direction: column; gap: 0.35rem; flex: none; }
-.navi-kopf { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.5rem 0.65rem 0.75rem; }
-.navi-benutzer { font-size: 0.8rem; opacity: 0.85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.navi-kopf { display: flex; flex-direction: column; gap: 0.25rem; padding: 1.5rem 0.65rem 1rem; }
+.navi-kopf strong { font-size: 0.875rem; font-weight: 500; line-height: 1.25; }
+.navi-benutzer { font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .navi a, .navi .button {
   color: inherit;
   text-decoration: none;
@@ -206,7 +212,7 @@ tr.markiert { box-shadow: inset 3px 0 0 var(--primary); }
 .optionen { max-width: 28rem; margin: 1rem; }
 .optionen-seite { max-width: 90rem; margin: 0 auto; padding: 1.2rem 1.5rem 3rem; }
 .optionen-kopf { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.8rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.6rem; }
-.optionen-kopf h1 { margin: 0; font-size: 1.35rem; }
+.optionen-kopf h1 { margin: 0; font-size: 1.25rem; }
 .reiter { display: flex; gap: 0.25rem; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.25rem; margin-bottom: 1rem; overflow-x: auto; }
 .reiter-knopf { flex: 1; white-space: nowrap; background: transparent; color: var(--muted); border: 0; border-radius: 8px; padding: 0.5rem 0.6rem; font-weight: 600; font-size: 0.9rem; }
 .reiter-knopf.aktiv { background: var(--btn-primary); color: #fff; }
@@ -303,7 +309,7 @@ tr.ohne { background: var(--row-overdue); }
 
 /* Scan-Seite (Belegfoto mit Eckenauswahl, mehrseitig). */
 .scan-seite { max-width: 60rem; margin: 0 auto; padding: 1rem 1rem calc(3rem + env(safe-area-inset-bottom)); }
-.scan-seite h1 { font-size: 1.35rem; margin: 0 0 0.8rem; }
+.scan-seite h1 { font-size: 1.25rem; margin: 0 0 0.8rem; }
 .scan-knöpfe button { min-height: 2.75rem; }
 .scan-fertig { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 0.6rem 0.8rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 .scan-rahmen { position: relative; margin: 0.6rem 0; }
