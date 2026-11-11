@@ -83,7 +83,7 @@ export function App() {
         {route.seite === "belege" && <BelegeSeite belegId={route.id} onFehler={setFehler} />}
         {route.seite === "scan" && <ScanSeite onFehler={setFehler} />}
         {route.seite === "kontozeilen" && <KontozeilenSeite bewegungId={route.id} onFehler={setFehler} />}
-        {route.seite === "einstellungen" && <EinstellungenSeite onFehler={setFehler} />}
+        {route.seite === "einstellungen" && <EinstellungenSeite onFehler={setFehler} istAdmin={istAdmin} />}
         {route.seite === "konto" && <KontoSeite benutzer={benutzer} onFehler={setFehler} />}
         {route.seite === "benutzer" && istAdmin && <BenutzerSeite aktuell={benutzer} onFehler={setFehler} />}
       </main>

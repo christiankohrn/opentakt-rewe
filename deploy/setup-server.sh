@@ -102,6 +102,7 @@ if [ ! -f "$ENV_FILE" ]; then
     echo "AZURE_ENDPOINT="
     echo "AZURE_API_KEY="
     echo "AZURE_DEPLOYMENT="
+    echo "GITHUB_TOKEN="
   } > "$ENV_FILE"
   chmod 640 "$ENV_FILE"
   chown root:"$DB_USER" "$ENV_FILE"
@@ -120,6 +121,46 @@ rsync -a --delete \
   --exclude 'data' --exclude '*.db*' \
   "$TREE/" "$APP/"
 chown -R "$DB_USER:$DB_USER" "$APP"
+# deploy/ gehört root: Der Dienst darf das Update-Skript und die Units,
+# die als root laufen, nicht verändern können.
+chown -R root:root "$APP/deploy"
+chmod 755 "$APP/deploy" "$APP/deploy/"*.sh
+
+echo "== Versionsstempel =="
+if [ -d "$TREE/.git" ]; then
+  python3 - "$TREE" <<'PY' || true
+import json
+import subprocess
+from datetime import datetime, timezone
+from pathlib import Path
+import sys
+
+d = sys.argv[1]
+
+def run(*args):
+    try:
+        return subprocess.run(
+            ["git", "-C", d, *args], capture_output=True, text=True, timeout=10, check=True
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+doc = {
+    "commit": run("rev-parse", "HEAD") or None,
+    "commit_datum": run("log", "-1", "--format=%cI") or None,
+    "nachricht": run("log", "-1", "--format=%s")[:160],
+    "installed_at": datetime.now(timezone.utc).isoformat(),
+    "source": "github",
+    "branch": "main",
+}
+p = Path("/var/lib/buchhaltung/version.json")
+if doc["commit"]:
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    tmp.replace(p)
+PY
+  chown "$DB_USER:$DB_USER" /var/lib/buchhaltung/version.json 2>/dev/null || true
+fi
 
 echo "== Backend =="
 su "$DB_USER" -s /bin/sh -c "cd $APP/backend && python3 -m venv .venv && .venv/bin/pip install -q --upgrade pip && .venv/bin/pip install -q -r requirements.txt"
@@ -209,11 +250,14 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 EOF
+install -m 644 "$APP/deploy/buchhaltung-update.service" /etc/systemd/system/buchhaltung-update.service
+install -m 644 "$APP/deploy/buchhaltung-update.path" /etc/systemd/system/buchhaltung-update.path
 systemctl daemon-reload
 systemctl enable --now buchhaltung.service
 systemctl enable --now buchhaltung-serie.timer
 systemctl enable --now buchhaltung-backup.timer
 systemctl enable --now buchhaltung-mailimport.timer
+systemctl enable --now buchhaltung-update.path
 
 echo "== nginx =="
 SITE=/etc/nginx/sites-available/buchhaltung

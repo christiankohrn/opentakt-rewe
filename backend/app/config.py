@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     imap_erledigt: str = ""
     # Quelle, unter der Mail-Anhänge als Belege landen.
     imap_quelle: str = "eingang"
+    # Optionaler Token für den Update-Check (mehr GitHub-Abfragen pro Stunde).
+    github_token: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

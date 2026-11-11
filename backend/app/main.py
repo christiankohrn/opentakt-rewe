@@ -5,6 +5,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.branding import PRODUCT_NAME
 from app.config import get_settings
 from app.db import get_engine
+from app.aktualisierung import router as update_router
 from app.belege_routes import router as belege_router
 from app.routes import router
 
@@ -20,6 +21,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(belege_router)
+app.include_router(update_router)
 
 
 @app.on_event("startup")

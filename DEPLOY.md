@@ -36,7 +36,11 @@ Danach als `admin` anmelden und das Passwort wechseln (die App verlangt das beim
 
 ## Laufende Installation aktualisieren
 
-Unter `/opt/buchhaltung` liegt kein Git-Repository. Umgebung (`/etc/buchhaltung.env`), Datenbank und Belege (`/var/lib/buchhaltung/belege`) bleiben unangetastet.
+Quelle ist immer GitHub (`main`-Branch). Als Admin in der Oberfläche unter **Einstellungen → Update** (Reiter nur für Admins sichtbar) auf **Jetzt prüfen** und dann **Update installieren** klicken. Das legt `/var/lib/buchhaltung/update.request` an; die Path-Unit `buchhaltung-update.path` startet darauf den Dienst `buchhaltung-update.service`, der `deploy/update.sh --from-web` als root ausführt. Das Skript sichert die Datenbank per `pg_dump` nach `/var/backups/buchhaltung/pre-update/`, holt den Code, installiert Abhängigkeiten, baut das Frontend und startet den Dienst neu (Migrationen laufen beim Start). Stand und Protokoll stehen in `/var/lib/buchhaltung/update-status.json` und `/var/lib/buchhaltung/update.log`. Umgebung, Datenbank, Belege, nginx und Zertifikate bleiben unangetastet.
+
+Auf Installationen von vor dieser Funktion fehlt die Path-Unit noch: einmal manuell wie unten aktualisieren — `update.sh` installiert sie dann, und danach geht es per Knopf.
+
+Manuell als root auf dem Server (Ersatzweg, auch bei kaputter Oberfläche):
 
 ```bash
 rm -rf /tmp/opentakt-rewe
@@ -52,12 +56,10 @@ rsync -a --delete \
   --exclude 'data' \
   --exclude '*.db*' \
   /tmp/opentakt-rewe/ /opt/buchhaltung/
-chown -R buchhaltung:buchhaltung /opt/buchhaltung
-su buchhaltung -s /bin/sh -c "cd /opt/buchhaltung/backend && .venv/bin/pip install -q -r requirements.txt"
-su buchhaltung -s /bin/sh -c "cd /opt/buchhaltung/frontend && npm ci --no-audit --no-fund && npm run build"
-su postgres -s /bin/sh -c "pg_dump -Fc buchhaltung" > /var/backups/buchhaltung/pre-update-$(date +%F-%H%M).dump
-systemctl restart buchhaltung.service
+bash /opt/buchhaltung/deploy/update.sh
 ```
+
+Unter `/opt/buchhaltung` liegt kein Git-Repository. `deploy/setup-server.sh` nicht für ein normales Update starten: es schreibt Units und nginx-Site neu.
 
 Prüfung: `curl -fsS https://rewe.firma.de/api/health`. Zeigt der Browser noch die alte Oberfläche, die Seite neu laden.
 
@@ -67,3 +69,4 @@ Prüfung: `curl -fsS https://rewe.firma.de/api/health`. Zeigt der Browser noch d
 - Für das Postfach ein eigenes Postfach nur für Belege verwenden. Der Abruf importiert PDF- und Bild-Anhänge ungesehener Mails und markiert sie als gelesen (auf Wunsch sortiert er sie in den Erledigt-Ordner). Von Hand: `su buchhaltung -s /bin/sh -c "cd /opt/buchhaltung/backend && .venv/bin/python -m app.cli mailimport"`.
 - Die Legacy-Variable `BUCHHALTUNG_PASSWORD` wird nur noch als Rückfall für `ADMIN_PASSWORT` beim allerersten Start gelesen.
 - Logs: `journalctl -u buchhaltung.service`, Timer: `systemctl list-timers 'buchhaltung-*'`.
+- Update per Knopf: `buchhaltung-update.path` beobachtet `/var/lib/buchhaltung/update.request` und startet `buchhaltung-update.service`. Tut sich nach dem Klick nichts: `systemctl status buchhaltung-update.path`, Protokoll in `/var/lib/buchhaltung/update.log`.

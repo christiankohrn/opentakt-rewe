@@ -102,6 +102,7 @@ Umgebungsvariablen (lokal in `backend/.env`, Produktion in `/etc/buchhaltung.env
 | `IMAP_HOST`, `IMAP_PORT`, `IMAP_USER`, `IMAP_PASSWORD`, `IMAP_TLS`, `IMAP_ORDNER`, `IMAP_ERLEDIGT`, `IMAP_QUELLE` | Beleg-Postfach für den automatischen Import; auch in der UI pflegbar |
 | `AZURE_ENDPOINT`, `AZURE_API_KEY`, `AZURE_DEPLOYMENT` | Optionale KI-Belegerkennung; auch in der UI pflegbar |
 | `MUSTANG_JAVA`, `MUSTANG_JAR` | Optionale E-Rechnungs-Prüfung, leer = aus |
+| `GITHUB_TOKEN` | Optionaler Token für den Update-Check (mehr GitHub-Abfragen); leer geht auch |
 | `ENVIRONMENT` | `development` oder `production` (Produktion vertraut nur konfigurierten WebAuthn-Origins) |
 | `PUBLIC_URL` | Öffentliche Adresse; steht in Mail-Links und ist WebAuthn-Fallback |
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGINS` | Passkeys; leer = aus `PUBLIC_URL` abgeleitet |

@@ -1,0 +1,9 @@
+[Unit]
+Description=Opentakt Rewe Update anstoßen
+
+[Path]
+PathModified=/var/lib/buchhaltung/update.request
+Unit=buchhaltung-update.service
+
+[Install]
+WantedBy=multi-user.target

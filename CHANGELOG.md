@@ -4,6 +4,7 @@ Format angelehnt an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), Ve
 
 ## [Unreleased]
 
+- Update-Check und One-Button-Update in den Einstellungen (eigener Reiter, nur Admin, Quelle ist GitHub): Stand prüfen, per Knopf installieren — der Server sichert die Datenbank per pg_dump, holt den Code, baut neu und startet den Dienst. Manueller Weg bleibt als Ersatz. Funktioniert auf jedem Server mit Update-Unit, auch auf Dev-Servern.
 - Navigation und Konto an Opentakt Zeit angeglichen: Icons in der linken Leiste, Farbschema als Icon-Knopf, „Passwort ändern“ unten führt auf die neue Konto-Seite mit Passwortformular und darunter den Sicherheitseinstellungen (2FA, Passkeys); der eigene Menüpunkt Sicherheit entfällt
 - Einstellungen mit Tab-Leiste (Stammdaten, Rechnungen & Konten, E-Mail & KI, Erkennung, Partner) statt Button-Reihe
 - Automatischer Belegimport aus einem eigenen Postfach (IMAP): ungesehene Mails werden abgerufen, Anhänge als Belege importiert, Mails als gelesen markiert oder in einen Erledigt-Ordner sortiert; Abruf per Timer alle 15 Minuten, von Hand in den Einstellungen oder per `python -m app.cli mailimport`

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiFehler, api } from "./api";
 import type { Kategorie } from "./konten";
 
@@ -65,7 +65,46 @@ type Partner = {
   betrag_muster: string;
 };
 
-type Reiter = "stammdaten" | "allgemein" | "verbindung" | "abrechnungen" | "partner";
+type Reiter = "stammdaten" | "allgemein" | "verbindung" | "abrechnungen" | "partner" | "update";
+
+type UpdateInstalliert = {
+  version: string;
+  commit: string | null;
+  commit_kurz: string | null;
+  commit_datum: string | null;
+  nachricht: string;
+};
+
+type UpdateRemote = {
+  commit: string;
+  commit_kurz: string;
+  datum: string | null;
+  nachricht: string;
+  url: string;
+};
+
+type UpdateLauf = {
+  zustand: "idle" | "running" | "done" | "failed";
+  gestartet_von?: string | null;
+  gestartet_am?: string | null;
+  beendet_am?: string | null;
+  von_commit?: string | null;
+  nach_commit?: string | null;
+  fehler?: string | null;
+  protokoll?: string[];
+};
+
+type UpdateStand = {
+  unterstuetzt: boolean;
+  grund: string | null;
+  installiert: UpdateInstalliert;
+  quelle: { repo: string; branch: string; url: string };
+  remote: UpdateRemote | null;
+  vergleich: "unbekannt" | "aktuell" | "dahinter" | "voraus" | "abgewichen";
+  dahinter: number | null;
+  letzte_pruefung: string | null;
+  update: UpdateLauf;
+};
 
 const KRITERIUM_ARTEN = [
   { wert: "dateiname", label: "Dateiname" },
@@ -74,7 +113,257 @@ const KRITERIUM_ARTEN = [
   { wert: "kartentext", label: "Kartennummer" },
 ];
 
-export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => void }) {
+function datumZeit(wert: string | null | undefined) {
+  if (!wert) return "—";
+  const d = new Date(wert);
+  return Number.isNaN(d.getTime()) ? wert : d.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+}
+
+function vergleichText(stand: UpdateStand): string {
+  if (!stand.remote) return "Noch nicht geprüft.";
+  switch (stand.vergleich) {
+    case "aktuell":
+      return "Auf dem neuesten Stand.";
+    case "dahinter":
+      return stand.dahinter ? `${stand.dahinter} Commits dahinter.` : "Neuere Version verfügbar.";
+    case "voraus":
+      return "Installierter Stand ist neuer als GitHub.";
+    case "abgewichen":
+      return stand.dahinter ? `Abgewichen, ${stand.dahinter} Commits dahinter.` : "Abgewichen.";
+    default:
+      return "Vergleich unbekannt.";
+  }
+}
+
+function UpdateKarte() {
+  const [stand, setStand] = useState<UpdateStand | null>(null);
+  const [meldung, setMeldung] = useState("");
+  const [fehler, setFehler] = useState("");
+  const [beschaeftigt, setBeschaeftigt] = useState(false);
+  const [bereit, setBereit] = useState(false);
+  const [phase, setPhase] = useState<"ruhig" | "aktualisiert" | "verbindet">("ruhig");
+  const zeitgeber = useRef<number | null>(null);
+
+  function abfrageStoppen() {
+    if (zeitgeber.current !== null) {
+      window.clearInterval(zeitgeber.current);
+      zeitgeber.current = null;
+    }
+  }
+
+  useEffect(() => {
+    api<UpdateStand>("/api/update/status")
+      .then(setStand)
+      .catch(() => setFehler("Update-Status konnte nicht geladen werden."))
+      .finally(() => setBereit(true));
+    return () => {
+      if (zeitgeber.current !== null) window.clearInterval(zeitgeber.current);
+    };
+  }, []);
+
+  function verbindungAbfragen() {
+    abfrageStoppen();
+    let versuche = 0;
+    zeitgeber.current = window.setInterval(() => {
+      void (async () => {
+        versuche += 1;
+        try {
+          await api<{ ok: boolean }>("/api/health");
+          abfrageStoppen();
+          try {
+            setStand(await api<UpdateStand>("/api/update/status"));
+          } catch {
+            /* Status folgt beim nächsten Laden */
+          }
+          setPhase("ruhig");
+          setBeschaeftigt(false);
+          setMeldung("Dienst ist wieder da.");
+        } catch {
+          if (versuche > 120) {
+            abfrageStoppen();
+            setPhase("ruhig");
+            setBeschaeftigt(false);
+            setFehler("Der Dienst meldet sich nicht zurück. Server prüfen.");
+          }
+        }
+      })();
+    }, 3000);
+  }
+
+  function statusAbfragen() {
+    abfrageStoppen();
+    let versuche = 0;
+    zeitgeber.current = window.setInterval(() => {
+      void (async () => {
+        versuche += 1;
+        try {
+          const neu = await api<UpdateStand>("/api/update/status");
+          setStand(neu);
+          if (neu.update.zustand !== "running") {
+            abfrageStoppen();
+            setPhase("ruhig");
+            setBeschaeftigt(false);
+            if (neu.update.zustand === "done") {
+              setMeldung("Update fertig. Seite lädt neu …");
+              window.setTimeout(() => window.location.reload(), 2500);
+            } else if (neu.update.zustand === "failed") {
+              setFehler(neu.update.fehler || "Update fehlgeschlagen.");
+            }
+          }
+        } catch {
+          abfrageStoppen();
+          setPhase("verbindet");
+          verbindungAbfragen();
+          return;
+        }
+        if (versuche > 120) {
+          abfrageStoppen();
+          setPhase("ruhig");
+          setBeschaeftigt(false);
+          setFehler("Update dauert ungewöhnlich lange. Status später erneut laden.");
+        }
+      })();
+    }, 3000);
+  }
+
+  async function pruefen() {
+    setMeldung("");
+    setFehler("");
+    setBeschaeftigt(true);
+    try {
+      setStand(await api<UpdateStand>("/api/update/check", { method: "POST" }));
+      setMeldung("Stand abgefragt.");
+    } catch (exc) {
+      setFehler(exc instanceof ApiFehler ? exc.message : "Fehler");
+    } finally {
+      setBeschaeftigt(false);
+    }
+  }
+
+  async function installieren() {
+    if (!window.confirm("Update jetzt installieren? Der Server holt den neuesten Stand von GitHub, sichert die Datenbank, baut neu und startet den Dienst. Die Oberfläche ist kurz nicht erreichbar.")) return;
+    setMeldung("");
+    setFehler("");
+    setBeschaeftigt(true);
+    try {
+      const neu = await api<UpdateStand>("/api/update/apply", { method: "POST" });
+      setStand(neu);
+      setPhase("aktualisiert");
+      setMeldung("Update läuft …");
+      statusAbfragen();
+    } catch (exc) {
+      setBeschaeftigt(false);
+      setFehler(exc instanceof ApiFehler ? exc.message : "Fehler");
+    }
+  }
+
+  if (!bereit || !stand) {
+    return (
+      <div>
+        <p className="hinweis">Update-Check und One-Button-Update, Quelle ist GitHub.</p>
+        {fehler ? <p className="fehler">{fehler}</p> : <p>Laden …</p>}
+      </div>
+    );
+  }
+
+  const laeuft = stand.update.zustand === "running" || phase !== "ruhig";
+  const darfInstallieren =
+    stand.unterstuetzt && !beschaeftigt && !laeuft && stand.vergleich !== "aktuell" && stand.remote !== null;
+  const protokoll = stand.update.protokoll ?? [];
+  const letzterLauf =
+    stand.update.zustand === "running"
+      ? "läuft …"
+      : stand.update.zustand === "done"
+        ? `fertig${stand.update.nach_commit ? ` (${stand.update.nach_commit})` : ""}`
+        : "fehlgeschlagen";
+
+  return (
+    <div>
+      <p className="hinweis">
+        Quelle ist GitHub ({stand.quelle.repo}, Branch {stand.quelle.branch}). Prüfen fragt den neuesten Stand
+        ab, Installieren sichert die Datenbank, holt den Code, baut neu und startet den Dienst.
+      </p>
+      {fehler && <p className="fehler">{fehler}</p>}
+      {meldung && <p className="hinweis">{meldung}</p>}
+      <div className="card">
+        <h2>Stand</h2>
+        <table>
+          <tbody>
+            <tr>
+              <td>Installiert</td>
+              <td>
+                Version {stand.installiert.version}
+                {stand.installiert.commit_kurz ? ` (${stand.installiert.commit_kurz})` : " (unbekannt)"}
+              </td>
+            </tr>
+            {stand.installiert.commit_datum && (
+              <tr>
+                <td>Installierter Commit</td>
+                <td>{datumZeit(stand.installiert.commit_datum)}</td>
+              </tr>
+            )}
+            <tr>
+              <td>GitHub</td>
+              <td>
+                {stand.remote ? (
+                  <a href={stand.remote.url} target="_blank" rel="noreferrer">
+                    {stand.remote.commit_kurz}
+                  </a>
+                ) : (
+                  "—"
+                )}
+                {stand.remote?.datum ? ` · ${datumZeit(stand.remote.datum)}` : ""}
+              </td>
+            </tr>
+            {stand.remote?.nachricht && (
+              <tr>
+                <td>Neueste Änderung</td>
+                <td>{stand.remote.nachricht}</td>
+              </tr>
+            )}
+            <tr>
+              <td>Vergleich</td>
+              <td>{vergleichText(stand)}</td>
+            </tr>
+            <tr>
+              <td>Letzte Prüfung</td>
+              <td>{datumZeit(stand.letzte_pruefung)}</td>
+            </tr>
+            {stand.update.zustand !== "idle" && (
+              <tr>
+                <td>Letztes Update</td>
+                <td>
+                  {letzterLauf}
+                  {stand.update.beendet_am ? ` · ${datumZeit(stand.update.beendet_am)}` : ""}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+        {!stand.unterstuetzt && stand.grund && <p className="hinweis">{stand.grund}</p>}
+        {phase === "verbindet" && <p className="hinweis">Dienst startet neu … Verbindung wird wieder aufgebaut.</p>}
+        {stand.update.zustand === "failed" && stand.update.fehler && <p className="fehler">{stand.update.fehler}</p>}
+        {stand.update.zustand === "failed" && protokoll.length > 0 && (
+          <details>
+            <summary>Protokoll der letzten Zeilen</summary>
+            <pre className="pruefung">{protokoll.join("\n")}</pre>
+          </details>
+        )}
+        <div className="actions" style={{ marginTop: "0.8rem" }}>
+          <button type="button" className="secondary" disabled={beschaeftigt || laeuft} onClick={() => void pruefen()}>
+            {beschaeftigt && phase === "ruhig" ? "…" : "Jetzt prüfen"}
+          </button>
+          <button type="button" disabled={!darfInstallieren} onClick={() => void installieren()}>
+            Update installieren
+          </button>
+        </div>
+        {stand.unterstuetzt && !stand.remote && !laeuft && <p className="hinweis">Erst prüfen, dann installieren.</p>}
+      </div>
+    </div>
+  );
+}
+
+export function EinstellungenSeite({ onFehler, istAdmin }: { onFehler: (text: string) => void; istAdmin: boolean }) {
   const [reiter, setReiter] = useState<Reiter>("stammdaten");
   const [naechste, setNaechste] = useState("");
   const [gespeichert, setGespeichert] = useState("");
@@ -455,6 +744,11 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
         <button type="button" role="tab" aria-selected={reiter === "partner"} className={reiter === "partner" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => void partnerLaden()}>
           Partner
         </button>
+        {istAdmin && (
+          <button type="button" role="tab" aria-selected={reiter === "update"} className={reiter === "update" ? "reiter-knopf aktiv" : "reiter-knopf"} onClick={() => setReiter("update")}>
+            Update
+          </button>
+        )}
       </div>
 
       {reiter === "stammdaten" && stammdaten && (
@@ -1021,6 +1315,8 @@ export function EinstellungenSeite({ onFehler }: { onFehler: (text: string) => v
           </div>
         </form>
       )}
+
+      {reiter === "update" && istAdmin && <UpdateKarte />}
     </div>
   );
 }
