@@ -19,4 +19,4 @@ pyotp>=2.9.0
 ldap3>=2.9.1
 pillow>=11.0.0
 pillow-heif>=0.18.0
-pytest>=8.3.0
+pytest>=9.2.0
