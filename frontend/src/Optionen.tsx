@@ -384,6 +384,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
   const [neuWv, setNeuWv] = useState(false);
   const [neuIban, setNeuIban] = useState("");
   const [neuBic, setNeuBic] = useState("");
+  const [neuFehler, setNeuFehler] = useState("");
   const [azure, setAzure] = useState<Azure | null>(null);
   const [schluessel, setSchluessel] = useState("");
   const [azureHinweis, setAzureHinweis] = useState("");
@@ -672,6 +673,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
 
   async function kategorieAnlegen(event: FormEvent) {
     event.preventDefault();
+    setNeuFehler("");
     try {
       const angelegt = await api<Kategorie>("/api/kategorien", {
         method: "POST",
@@ -694,7 +696,9 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
       setKategorienHinweis(`Konto ${angelegt.name} angelegt.`);
       onFehler("");
     } catch (exc) {
-      onFehler(exc instanceof ApiFehler ? exc.message : "Konto nicht angelegt.");
+      const text = exc instanceof ApiFehler ? exc.message : "Konto nicht angelegt.";
+      setNeuFehler(text);
+      onFehler(text);
     }
   }
 
@@ -938,16 +942,34 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
             </form>
           </div>
 
-          <form className="card" style={{ marginBottom: 0 }} onSubmit={(event) => void kategorienSpeichern(event)}>
+          <div className="card" style={{ marginBottom: 0 }}>
             <div className="karten-kopf">
               <div>
                 <h2>Konten & Kategorien ({kategorien.length})</h2>
                 <p className="hinweis">
-                  DATEV-Upload-E-Mail je Konto für Belege & Abrechnungen sowie optionaler Haken für die Weiterverarbeitungsdatei (Dok.-Nr. 9226961) an den Steuerberater.
+                  Jedes Konto kann eine eigene E-Mail haben, deine Adresse oder eine DATEV-Upload-Adresse. Belege und Abrechnungen gehen dorthin. Der Haken schickt zusätzlich die Weiterverarbeitungsdatei (9226961) an den Steuerberater.
                 </p>
               </div>
-              <button type="submit">Konten speichern</button>
             </div>
+            <form className="optionen-neues-konto-block" onSubmit={(event) => void kategorieAnlegen(event)}>
+              <h3>Neues Konto</h3>
+              <div className="optionen-neues-konto">
+                <label>Anzeigename<input value={neuName} onChange={(event) => setNeuName(event.target.value)} placeholder="z.B. PayPal oder Sparkasse" required /></label>
+                <label>Schlüssel (optional)<input value={neuSchluessel} onChange={(event) => setNeuSchluessel(event.target.value)} placeholder="wird sonst aus Namen gebildet" /></label>
+                <label>E-Mail<input type="email" value={neuEmail} onChange={(event) => setNeuEmail(event.target.value)} placeholder="deine Adresse oder ...@uploadmail.datev.de" /></label>
+                <label>IBAN (optional)<input value={neuIban} onChange={(event) => setNeuIban(event.target.value)} placeholder="DE..." /></label>
+                <label>BIC (optional)<input value={neuBic} onChange={(event) => setNeuBic(event.target.value)} placeholder="BIC..." /></label>
+                <label className="check" style={{ alignSelf: "end", paddingBottom: "0.45rem" }}>
+                  <input type="checkbox" checked={neuWv} onChange={(event) => setNeuWv(event.target.checked)} />
+                  Weiterverarbeitungsdatei (9226961) an StB senden
+                </label>
+              </div>
+              {neuFehler && <p className="fehler">{neuFehler}</p>}
+              <div className="actions" style={{ marginTop: "0.6rem" }}>
+                <button type="submit">Konto anlegen</button>
+              </div>
+            </form>
+            <form onSubmit={(event) => void kategorienSpeichern(event)}>
             {kategorienHinweis && <p className="erfolg-hinweis">{kategorienHinweis}</p>}
             <div className="tabelle-rahmen tabelle-scroll">
               <table className="daten-tabelle optionen-tabelle optionen-konten-tabelle">
@@ -955,7 +977,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                   <tr>
                     <th style={{ width: "8.5rem" }}>Schlüssel</th>
                     <th style={{ width: "11rem" }}>Anzeigename</th>
-                    <th style={{ minWidth: "22rem" }}>DATEV-Upload-E-Mail (Belege & Abrechnung)</th>
+                    <th style={{ minWidth: "22rem" }}>E-Mail (eigene Adresse oder DATEV-Upload)</th>
                     <th style={{ width: "13rem" }}>IBAN (für Dok. 9226961)</th>
                     <th style={{ width: "8.5rem" }}>BIC</th>
                     <th style={{ width: "9rem", textAlign: "center" }}>Weiterverarb. an StB</th>
@@ -983,7 +1005,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                         <input
                           aria-label={`DATEV-Adresse ${kategorie.original_schluessel}`}
                           value={kategorie.datev_email}
-                          placeholder="keine direkte DATEV-Upload-Adresse"
+                          placeholder="deine Adresse oder DATEV-Upload"
                           onChange={(event) => setKategorien(kategorien.map((eintrag, item) => item === index ? { ...eintrag, datev_email: event.target.value } : eintrag))}
                         />
                       </td>
@@ -1023,25 +1045,8 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
               <button type="submit">Konten speichern</button>
             </div>
             {kategorienHinweis && <p className="hinweis">{kategorienHinweis}</p>}
-          </form>
-
-          <form className="card" onSubmit={(event) => void kategorieAnlegen(event)}>
-            <h2>Neues Konto anlegen</h2>
-            <div className="optionen-neues-konto">
-              <label>Anzeigename<input value={neuName} onChange={(event) => setNeuName(event.target.value)} placeholder="z.B. PayPal oder Sparkasse" required /></label>
-              <label>Schlüssel (optional)<input value={neuSchluessel} onChange={(event) => setNeuSchluessel(event.target.value)} placeholder="wird sonst aus Namen gebildet" /></label>
-              <label>DATEV-Upload-E-Mail<input value={neuEmail} onChange={(event) => setNeuEmail(event.target.value)} placeholder="...@uploadmail.datev.de (optional)" /></label>
-              <label>IBAN (optional)<input value={neuIban} onChange={(event) => setNeuIban(event.target.value)} placeholder="DE..." /></label>
-              <label>BIC (optional)<input value={neuBic} onChange={(event) => setNeuBic(event.target.value)} placeholder="BIC..." /></label>
-              <label className="check" style={{ alignSelf: "end", paddingBottom: "0.45rem" }}>
-                <input type="checkbox" checked={neuWv} onChange={(event) => setNeuWv(event.target.checked)} />
-                Weiterverarbeitungsdatei (9226961) an StB senden
-              </label>
-            </div>
-            <div className="actions" style={{ marginTop: "0.6rem" }}>
-              <button type="submit">Konto anlegen</button>
-            </div>
-          </form>
+            </form>
+          </div>
         </div>
       )}
 

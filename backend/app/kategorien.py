@@ -65,7 +65,9 @@ def schluessel_bilden(name: str, vorgabe: str = "") -> str:
     if not zeichen:
         raise ValueError("Der Schlüssel braucht mindestens einen Buchstaben oder eine Ziffer.")
     if len(zeichen) > 20:
-        raise ValueError("Der Schlüssel darf höchstens 20 Zeichen haben.")
+        if vorgabe.strip():
+            raise ValueError("Der Schlüssel darf höchstens 20 Zeichen haben.")
+        zeichen = zeichen[:20]
     return zeichen
 
 

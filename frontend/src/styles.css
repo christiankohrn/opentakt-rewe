@@ -505,6 +505,8 @@ tr.aktiv { background: var(--row-selected) !important; outline: 1px solid var(--
 .optionen-grid { display: grid; grid-template-columns: minmax(280px, 24rem) minmax(0, 1fr); gap: 1rem; align-items: start; }
 .optionen-stapel { display: flex; flex-direction: column; gap: 1rem; }
 .optionen-zwei { display: grid; grid-template-columns: minmax(280px, 24rem) minmax(0, 1fr); gap: 1rem; align-items: start; }
+.optionen-neues-konto-block { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line); }
+.optionen-neues-konto-block h3 { margin: 0 0 0.7rem; font-size: 1rem; }
 .optionen-neues-konto { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.7rem; align-items: end; }
 .tabelle-scroll { overflow-x: auto; border-radius: 10px; }
 .optionen-konten-tabelle { width: 100%; min-width: 58rem; }
