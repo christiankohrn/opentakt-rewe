@@ -7,6 +7,7 @@ from app.config import get_settings
 from app.db import get_engine
 from app.aktualisierung import router as update_router
 from app.belege_routes import router as belege_router
+from app.import_api import router as import_router
 from app.routes import router
 
 settings = get_settings()
@@ -21,6 +22,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(belege_router)
+app.include_router(import_router)
 app.include_router(update_router)
 
 

@@ -45,6 +45,8 @@ type Postfach = {
   quelle: string;
   tls: boolean;
   passwort_gesetzt: boolean;
+  pdf_absender: string;
+  upload_token_gesetzt: boolean;
 };
 type PostfachProtokoll = {
   import_id: number;
@@ -390,6 +392,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
   const [azureHinweis, setAzureHinweis] = useState("");
   const [postfach, setPostfach] = useState<Postfach | null>(null);
   const [postfachPasswort, setPostfachPasswort] = useState("");
+  const [uploadToken, setUploadToken] = useState("");
   const [postfachHinweis, setPostfachHinweis] = useState("");
   const [postfachProtokoll, setPostfachProtokoll] = useState<PostfachProtokoll[]>([]);
   const [postfachLaeuft, setPostfachLaeuft] = useState(false);
@@ -517,11 +520,18 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
           quelle: postfach.quelle,
           tls: postfach.tls,
           passwort: postfachPasswort,
+          pdf_absender: postfach.pdf_absender,
+          upload_token: uploadToken,
         }),
       });
       setPostfach(daten);
       setPostfachPasswort("");
-      setPostfachHinweis(postfachPasswort ? "Postfach und Passwort gespeichert." : "Gespeichert. Das Passwort bleibt unverändert.");
+      setUploadToken("");
+      setPostfachHinweis(
+        postfachPasswort || uploadToken
+          ? "Postfach gespeichert."
+          : "Gespeichert. Passwort und Upload-Token bleiben unverändert.",
+      );
       onFehler("");
     } catch (exc) {
       onFehler(exc instanceof ApiFehler ? exc.message : "Postfach nicht gespeichert.");
@@ -1129,7 +1139,7 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                 <div>
                   <h2>Beleg-Postfach (IMAP)</h2>
                   <p className="hinweis">
-                    Ungesehene Mails werden automatisch alle 15 Minuten abgerufen, PDF-/Bild-Anhänge als Belege importiert und Mails als gelesen markiert.
+                    Ungesehene Mails werden automatisch alle 15 Minuten abgerufen. PDF- und Bild-Anhänge werden Belege. Mails ohne Anhang werden nur für die eingetragenen Absender als PDF übernommen.
                   </p>
                 </div>
               </div>
@@ -1155,6 +1165,24 @@ export function EinstellungenSeite({ onFehler, istAdmin, aktuell }: { onFehler: 
                   <label>Eingangs-Ordner<input value={postfach.ordner} onChange={(event) => setPostfach({ ...postfach, ordner: event.target.value })} /></label>
                   <label>Erledigt-Ordner (optional)<input value={postfach.erledigt} placeholder="leer = nur als gelesen markieren" onChange={(event) => setPostfach({ ...postfach, erledigt: event.target.value })} /></label>
                 </div>
+                <label>Mails ohne Anhang als PDF (eine Adresse oder @domain pro Zeile)
+                  <textarea
+                    rows={4}
+                    value={postfach.pdf_absender}
+                    placeholder={"rechnung@firma.de\n@newsletter.de"}
+                    onChange={(event) => setPostfach({ ...postfach, pdf_absender: event.target.value })}
+                  />
+                </label>
+                <label>Upload-Token für POST /api/import/belege
+                  <input
+                    type="password"
+                    name="beleg-upload-token"
+                    autoComplete="new-password"
+                    value={uploadToken}
+                    placeholder={postfach.upload_token_gesetzt ? "gesetzt (leer = unverändert)" : "leer = Schnittstelle aus"}
+                    onChange={(event) => setUploadToken(event.target.value)}
+                  />
+                </label>
                 <label>Ziel-Konto für Mail-Belege
                   <select value={postfach.quelle} onChange={(event) => setPostfach({ ...postfach, quelle: event.target.value })}>
                     {!kategorien.some((k) => k.schluessel === postfach.quelle) && !["eingang", "scan", "datei"].includes(postfach.quelle) && (

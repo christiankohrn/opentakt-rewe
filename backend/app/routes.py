@@ -890,7 +890,16 @@ def postfach_setzen(body: PostfachIn, session: Session = Depends(get_db), _: Ben
         raise HTTPException(status_code=400, detail=f"Unbekannte Quelle {body.quelle}.")
     try:
         return postfach_speichern(
-            body.host, body.port, body.benutzer, body.ordner, body.erledigt, body.quelle, body.tls, body.passwort
+            body.host,
+            body.port,
+            body.benutzer,
+            body.ordner,
+            body.erledigt,
+            body.quelle,
+            body.tls,
+            body.passwort,
+            body.pdf_absender,
+            body.upload_token,
         )
     except FileNotFoundError:
         raise HTTPException(status_code=503, detail="Postfach-Datei fehlt.") from None

@@ -61,6 +61,11 @@ class Settings(BaseSettings):
     imap_erledigt: str = ""
     # Quelle, unter der Mail-Anhänge als Belege landen.
     imap_quelle: str = "eingang"
+    # Absender, deren anhanglose Mail als PDF-Beleg übernommen wird.
+    # Kommagetrennt: Adresse oder @domain.
+    imap_pdf_absender: str = ""
+    # Token für POST /api/import/belege. Leer = Schnittstelle aus.
+    beleg_upload_token: str = ""
     # Optionaler Token für den Update-Check (mehr GitHub-Abfragen pro Stunde).
     github_token: str = ""
 

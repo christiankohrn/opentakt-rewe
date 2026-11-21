@@ -218,3 +218,5 @@ class PostfachIn(BaseModel):
     erledigt: str = ""
     quelle: str = "eingang"
     tls: bool = True
+    pdf_absender: str = ""
+    upload_token: str = ""

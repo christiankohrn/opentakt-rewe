@@ -267,9 +267,124 @@ def test_abrufen_ohne_verbindung_meldet_fehler(session, monkeypatch):
         postfach.abrufen(session, {"host": "mail.beispiel.de", "ordner": "INBOX", "quelle": "eingang"})
 
 
+def test_upload_api_token(session):
+    import asyncio
+    from io import BytesIO
+
+    from fastapi import HTTPException
+    from starlette.datastructures import Headers, UploadFile
+
+    from app.config import get_settings
+    from app.import_api import beleg_import, token_pruefen
+
+    settings = get_settings()
+    alt = settings.beleg_upload_token
+    pdf = _pdf_mit_text()
+
+    def datei(name: str, inhalt: bytes, typ: str) -> UploadFile:
+        return UploadFile(file=BytesIO(inhalt), filename=name, headers=Headers({"content-type": typ}))
+
+    try:
+        settings.beleg_upload_token = ""
+        with pytest.raises(HTTPException) as ohne:
+            token_pruefen(None)
+        assert ohne.value.status_code == 503
+        settings.beleg_upload_token = "geheim-token"
+        with pytest.raises(HTTPException) as falsch:
+            token_pruefen("Bearer falsch")
+        assert falsch.value.status_code == 401
+        token_pruefen("Bearer geheim-token")
+        ok = asyncio.run(beleg_import(datei("rechnung.pdf", pdf, "application/pdf"), "eingang", "beleg", session))
+        assert ok["neu"] is True
+        nochmal = asyncio.run(beleg_import(datei("rechnung.pdf", pdf, "application/pdf"), "eingang", "beleg", session))
+        assert nochmal["neu"] is False
+        with pytest.raises(HTTPException) as kein_pdf:
+            asyncio.run(beleg_import(datei("notiz.txt", b"kein pdf", "text/plain"), "eingang", "beleg", session))
+        assert kein_pdf.value.status_code == 400
+    finally:
+        settings.beleg_upload_token = alt
+
+
 def test_fehlermeldung_ohne_passwort():
     text = postfach._fehler_saeubern("Anmeldung mit geheim-123 fehlgeschlagen", "geheim-123")
     assert "geheim-123" not in text
+
+
+def _mail_ohne_anhang(absender: str, kennung: str, text: str = "Rechnung 4711\nGesamtbetrag 12,99 EUR", html: bool = False) -> bytes:
+    nachricht = EmailMessage()
+    nachricht["Subject"] = "Rechnung per Mail"
+    nachricht["From"] = absender
+    nachricht["Date"] = "Thu, 01 Oct 2026 10:00:00 +0200"
+    nachricht["Message-ID"] = kennung
+    if html:
+        nachricht.set_content(f"<p>{text}</p>", subtype="html")
+    else:
+        nachricht.set_content(text)
+    return nachricht.as_bytes()
+
+
+def _abruf(session, monkeypatch, mails: list[bytes], pdf_absender: str) -> dict:
+    fake = _FakeImap(mails)
+    monkeypatch.setattr(postfach, "_verbindung", lambda einstellungen: fake)
+    return postfach.abrufen(session, {
+        "host": "mail.beispiel.de",
+        "port": 993,
+        "benutzer": "belege",
+        "passwort": "geheim",
+        "tls": True,
+        "ordner": "INBOX",
+        "erledigt": "",
+        "quelle": "eingang",
+        "pdf_absender": pdf_absender,
+    })
+
+
+def test_mail_ohne_anhang_wird_pdf_wenn_absender_passt(session, monkeypatch):
+    ergebnis = _abruf(
+        session,
+        monkeypatch,
+        [_mail_ohne_anhang("Rechnung <rechnungen@beispiel.de>", "<pdf-mail@beispiel.de>")],
+        "rechnungen@beispiel.de",
+    )
+    assert ergebnis["neu"] == 1
+    assert ergebnis["dateien"] == 1
+    belege = session.scalars(select(Beleg)).all()
+    assert len(belege) == 1
+    assert belege[0].dateiname.startswith("Rechnung")
+    assert belege[0].dateiname.endswith(".pdf")
+    assert "12,99" in (belege[0].text_auszug or "") or "4711" in (belege[0].text_auszug or "")
+
+
+def test_mail_ohne_anhang_html_und_domain(session, monkeypatch):
+    ergebnis = _abruf(
+        session,
+        monkeypatch,
+        [_mail_ohne_anhang("Newsletter <news@firma.de>", "<html-mail@firma.de>", html=True)],
+        "@firma.de",
+    )
+    assert ergebnis["neu"] == 1
+    beleg = session.scalars(select(Beleg)).one()
+    assert "4711" in (beleg.text_auszug or "")
+
+
+def test_mail_ohne_anhang_anderer_absender_bleibt_liegen(session, monkeypatch):
+    ergebnis = _abruf(
+        session,
+        monkeypatch,
+        [_mail_ohne_anhang("kollege@andere.de", "<fremd@andere.de>")],
+        "rechnungen@beispiel.de",
+    )
+    assert ergebnis["dateien"] == 0
+    assert ergebnis["neu"] == 0
+    assert session.scalars(select(Beleg)).all() == []
+
+
+def test_mail_mit_pdf_bleibt_beim_anhang(session, monkeypatch):
+    ergebnis = _abruf(session, monkeypatch, [_mail_mit_anhang()], "rechnungen@beispiel.de")
+    assert ergebnis["neu"] == 1
+    belege = session.scalars(select(Beleg)).all()
+    assert len(belege) == 1
+    assert belege[0].dateiname == "Rechnung-4711.pdf"
 
 
 def test_postfach_speichern_ohne_passwort_rueckgabe(tmp_path, monkeypatch):
