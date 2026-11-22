@@ -177,18 +177,20 @@ def remote_pruefen(settings: Settings, lokal: str | None) -> dict:
     if lokal:
         verglichen = json_laden(f"{api}/compare/{lokal}...{sha}", settings)
         stand = (verglichen.get("status") or "").strip()
+        # base ist der installierte Commit, head der Stand auf GitHub.
+        # "ahead" heißt deshalb: GitHub hat Commits, die hier fehlen.
         if stand == "identical":
             vergleich = "aktuell"
             dahinter = 0
-        elif stand == "behind":
-            vergleich = "dahinter"
-            dahinter = int(verglichen.get("behind_by") or 0)
         elif stand == "ahead":
+            vergleich = "dahinter"
+            dahinter = int(verglichen.get("ahead_by") or 0)
+        elif stand == "behind":
             vergleich = "voraus"
             dahinter = 0
         elif stand == "diverged":
             vergleich = "abgewichen"
-            dahinter = int(verglichen.get("behind_by") or 0)
+            dahinter = int(verglichen.get("ahead_by") or 0)
     return {"remote": remote, "vergleich": vergleich, "dahinter": dahinter}
 
 
@@ -247,6 +249,12 @@ def status_antwort(settings: Settings | None = None) -> dict:
     gepuffert = status_lesen()
     update = dict(gepuffert.get("update") or {"zustand": "idle"})
     update["protokoll"] = _protokoll_ende()
+    remote = gepuffert.get("remote") if isinstance(gepuffert.get("remote"), dict) else None
+    vergleich = gepuffert.get("vergleich", "unbekannt")
+    dahinter = gepuffert.get("dahinter")
+    if sha and remote and remote.get("commit") == sha:
+        vergleich = "aktuell"
+        dahinter = 0
     return {
         "unterstuetzt": unterstuetzt,
         "grund": grund,
@@ -258,9 +266,9 @@ def status_antwort(settings: Settings | None = None) -> dict:
             "nachricht": installiert.get("nachricht") or "",
         },
         "quelle": {"repo": _api_repo(), "branch": UPDATE_BRANCH, "url": REPO_URL},
-        "remote": gepuffert.get("remote"),
-        "vergleich": gepuffert.get("vergleich", "unbekannt"),
-        "dahinter": gepuffert.get("dahinter"),
+        "remote": remote,
+        "vergleich": vergleich,
+        "dahinter": dahinter,
         "letzte_pruefung": gepuffert.get("letzte_pruefung"),
         "update": update,
     }

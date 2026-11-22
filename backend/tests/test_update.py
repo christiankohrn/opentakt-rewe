@@ -134,7 +134,9 @@ def test_check_speichert_remote_stand(session, admin_pw, daten_tmp, monkeypatch)
         "html_url": "https://github.com/x/y/commit/feedface",
         "commit": {"message": "Neu: Update-Knopf\n\nDetails", "committer": {"date": "2026-11-10T10:00:00Z"}},
     }
-    vergleich = {"status": "behind", "behind_by": 3, "ahead_by": 0}
+    # base ist der installierte Commit, head der Stand auf GitHub.
+    # "ahead" heißt: auf GitHub liegen Commits, die hier fehlen.
+    vergleich = {"status": "ahead", "behind_by": 0, "ahead_by": 3}
 
     def fake_laden(url, settings):
         if url.endswith("/commits/main"):
@@ -155,6 +157,30 @@ def test_check_speichert_remote_stand(session, admin_pw, daten_tmp, monkeypatch)
     gepuffert = akt.update_status(admin)
     assert gepuffert["remote"]["commit"] == kopf["sha"]
     assert gepuffert["vergleich"] == "dahinter"
+
+
+def test_check_erkennt_installierten_stand_vor_github(session, admin_pw, daten_tmp, monkeypatch):
+    import app.aktualisierung as akt
+
+    admin = _admin(session, admin_pw)
+    kopf = {
+        "sha": "c" * 40,
+        "html_url": "https://github.com/x/y/commit/c",
+        "commit": {"message": "Alt", "committer": {"date": "2026-11-10T10:00:00Z"}},
+    }
+    vergleich = {"status": "behind", "behind_by": 2, "ahead_by": 0}
+
+    def fake_laden(url, settings):
+        if url.endswith("/commits/main"):
+            return kopf
+        return vergleich
+
+    monkeypatch.setattr(akt, "json_laden", fake_laden)
+    monkeypatch.setattr(akt, "installations_stand", lambda: {"version": "0.1.0", "commit": "d" * 40})
+
+    antwort = akt.update_check(admin)
+    assert antwort["vergleich"] == "voraus"
+    assert antwort["dahinter"] == 0
 
 
 def test_check_ohne_lokalen_commit_ist_unbekannt(session, admin_pw, daten_tmp, monkeypatch):

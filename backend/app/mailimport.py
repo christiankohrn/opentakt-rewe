@@ -428,21 +428,80 @@ def _art_und_quelle(session: Session, dateiname: str, inhalt: bytes, reserve_que
     return "beleg", reserve_quelle
 
 
+def _imap_meldung(antwort) -> str:
+    if not antwort:
+        return "keine Antwort"
+    teil = antwort[0]
+    if isinstance(teil, bytes):
+        return teil.decode("utf-8", "replace") or "abgelehnt"
+    return str(teil or "abgelehnt")
+
+
+def _ordner_sicherstellen(server, ziel: str) -> None:
+    try:
+        typ, _antwort = server.status(ziel, "(MESSAGES)")
+    except imaplib.IMAP4.error:
+        typ = "NO"
+    if typ != "OK":
+        typ, antwort = server.create(ziel)
+        if typ != "OK":
+            raise RuntimeError(f"Ordner {ziel} ließ sich nicht anlegen ({_imap_meldung(antwort)}).")
+    try:
+        server.subscribe(ziel)
+    except Exception:
+        pass
+
+
 def _ablegen(server, nummer: str, ziel: str) -> None:
-    typ, _ = server.copy(nummer, ziel)
+    typ, antwort = server.copy(nummer, ziel)
     if typ != "OK":
-        try:
-            server.create(ziel)
-        except Exception:
-            pass
-        typ, _ = server.copy(nummer, ziel)
+        _ordner_sicherstellen(server, ziel)
+        typ, antwort = server.copy(nummer, ziel)
     if typ != "OK":
-        raise RuntimeError(f"Mail ließ sich nicht nach {ziel} sortieren.")
+        raise RuntimeError(f"Mail ließ sich nicht nach {ziel} sortieren ({_imap_meldung(antwort)}).")
     server.store(nummer, "+FLAGS", "\\Deleted")
     try:
         server.expunge()
     except Exception:
         pass
+
+
+def _fetch_roh(teile) -> bytes:
+    return b"".join(teil[1] if isinstance(teil, tuple) and isinstance(teil[1], bytes) else b"" for teil in teile or [])
+
+
+def _message_id(roh: bytes) -> str:
+    if not roh:
+        return ""
+    return str(message_from_bytes(roh).get("Message-ID", "") or "").strip()[:500]
+
+
+def _bereits_importierte_verschieben(session: Session, server, ziel: str, schon: set[str], fehler: list[str], passwort: str) -> None:
+    """Mails, die schon ein Beleg sind, aber noch im Eingang liegen, nachziehen.
+
+    Der erste Versuch kann scheitern, wenn der Zielordner fehlt. Der Abruf
+    markiert die Mail dabei nicht als gelesen, ältere Läufe haben das aber
+    schon getan. Die bleiben sonst für immer im Eingang.
+    """
+    try:
+        nummern = _ok(server.search(None, "ALL")).split()
+    except Exception:
+        return
+    for roh_nummer in reversed(nummern[-_MAX_MAILS:]):
+        nummer = roh_nummer.decode("ascii", "replace")
+        try:
+            typ, teile = server.fetch(nummer, "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])")
+            if typ != "OK":
+                continue
+            kennung = _message_id(_fetch_roh(teile))
+            if not kennung or kennung in schon:
+                continue
+            if session.scalar(select(MailImport).where(MailImport.message_id == kennung)) is None:
+                continue
+            _ablegen(server, nummer, ziel)
+            schon.add(kennung)
+        except Exception as exc:
+            fehler.append(f"Mail {nummer}: {_fehler_saeubern(str(exc), passwort)}")
 
 
 def abrufen(session: Session, einstellungen: dict | None = None, limit: int = _MAX_MAILS) -> dict:
@@ -469,21 +528,28 @@ def abrufen(session: Session, einstellungen: dict | None = None, limit: int = _M
             server.select(daten["ordner"])
         except Exception as exc:
             raise RuntimeError(f"Ordner {daten['ordner']} nicht lesbar: {_fehler_saeubern(str(exc), daten['passwort'])}") from None
+        if daten["erledigt"]:
+            _ordner_sicherstellen(server, daten["erledigt"])
+        verschoben: set[str] = set()
         nummern = _ok(server.search(None, "UNSEEN")).split()
-        for roh_nummer in nummern[-max(limit, 1):]:
+        for roh_nummer in reversed(nummern[-max(limit, 1):]):
             nummer = roh_nummer.decode("ascii", "replace")
             try:
-                typ, teile = server.fetch(nummer, "(RFC822)")
+                typ, teile = server.fetch(nummer, "(BODY.PEEK[])")
                 if typ != "OK":
                     raise RuntimeError("Mail ließ sich nicht laden.")
-                roh = b"".join(teil[1] if isinstance(teil, tuple) else b"" for teil in teile)
+                roh = _fetch_roh(teile)
                 if not roh:
                     raise RuntimeError("Mail war leer.")
                 nachricht = message_from_bytes(roh)
-                kennung = (str(nachricht.get("Message-ID", "")) or sha256(roh).hexdigest()).strip()
+                kennung = (_message_id(roh) or sha256(roh).hexdigest()).strip()
                 if session.scalar(select(MailImport).where(MailImport.message_id == kennung)) is not None:
                     uebersprungen += 1
-                    server.store(nummer, "+FLAGS", "\\Seen")
+                    if daten["erledigt"]:
+                        _ablegen(server, nummer, daten["erledigt"])
+                        verschoben.add(kennung)
+                    else:
+                        server.store(nummer, "+FLAGS", "\\Seen")
                     continue
                 anhaenge = anhaenge_aus_mail(nachricht)
                 if not anhaenge and absender_trifft(_absender(nachricht), daten.get("pdf_absender") or ""):
@@ -515,10 +581,13 @@ def abrufen(session: Session, einstellungen: dict | None = None, limit: int = _M
                 mails += 1
                 if daten["erledigt"]:
                     _ablegen(server, nummer, daten["erledigt"])
+                    verschoben.add(kennung)
                 else:
                     server.store(nummer, "+FLAGS", "\\Seen")
             except Exception as exc:
                 fehler.append(f"Mail {nummer}: {_fehler_saeubern(str(exc), daten['passwort'])}")
+        if daten["erledigt"]:
+            _bereits_importierte_verschieben(session, server, daten["erledigt"], verschoben, fehler, daten["passwort"])
         try:
             server.close()
         except Exception:

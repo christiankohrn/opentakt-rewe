@@ -1,6 +1,6 @@
 """Beleg-Postfach (IMAP) und lokale OCR: Erkennung, Fallbacks, Duplikate."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from email.message import EmailMessage
 
@@ -183,6 +183,7 @@ class _FakeImap:
         self.mails = mails
         self.gesehen: set[str] = set()
         self.verschoben: list[tuple[str, str]] = []
+        self.ordner: set[str] = set()
 
     def login(self, _benutzer, _passwort):
         return ("OK", [b"ok"])
@@ -205,11 +206,22 @@ class _FakeImap:
         self.gesehen.add(str(nummer))
         return ("OK", [b"ok"])
 
+    def status(self, ziel, _felder):
+        if ziel in self.ordner:
+            return ("OK", [f"{ziel} (MESSAGES 0)".encode()])
+        return ("NO", [b"Mailbox doesn't exist"])
+
     def copy(self, nummer, ziel):
+        if ziel not in self.ordner:
+            return ("NO", [b"[TRYCREATE] Mailbox doesn't exist"])
         self.verschoben.append((str(nummer), ziel))
         return ("OK", [b"ok"])
 
-    def create(self, _ziel):
+    def create(self, ziel):
+        self.ordner.add(ziel)
+        return ("OK", [b"ok"])
+
+    def subscribe(self, _ziel):
         return ("OK", [b"ok"])
 
     def expunge(self):
@@ -256,6 +268,36 @@ def test_abrufen_importiert_neu_und_ignoriert_duplikat(session, monkeypatch):
     assert zweites["mails"] == 0
     assert zweites["neu"] == 0
     assert len(session.scalars(select(Beleg)).all()) == 1
+
+
+def test_fehlender_erledigt_ordner_wird_angelegt_und_alte_mail_verschoben(session, monkeypatch):
+    fake = _FakeImap([_mail_mit_anhang()])
+    fake.gesehen.add("1")
+    session.add(MailImport(
+        message_id="<4711@beispiel.de>",
+        betreff="Ihre Rechnung 4711",
+        absender="rechnungen@beispiel.de",
+        dateien=1,
+        beleg_ids_json="[]",
+        zeitpunkt=datetime(2026, 10, 1, 10, 0),
+    ))
+    session.flush()
+    monkeypatch.setattr(postfach, "_verbindung", lambda einstellungen: fake)
+    ergebnis = postfach.abrufen(session, {
+        "host": "mail.beispiel.de",
+        "port": 993,
+        "benutzer": "belege",
+        "passwort": "geheim",
+        "tls": True,
+        "ordner": "INBOX",
+        "erledigt": "Erledigt",
+        "quelle": "eingang",
+    })
+    assert "Erledigt" in fake.ordner
+    assert fake.verschoben == [("1", "Erledigt")]
+    assert ergebnis["dateien"] == 0
+    assert ergebnis["neu"] == 0
+    assert ergebnis["fehler"] == []
 
 
 def test_abrufen_ohne_verbindung_meldet_fehler(session, monkeypatch):
